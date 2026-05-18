@@ -1,0 +1,36 @@
+@import 'tailwindcss';
+
+:root {
+  font-family: 'Avenir Next', 'Segoe UI', sans-serif;
+  color: #172033;
+  background: #efe6d7;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100vh;
+}
+
+body {
+  margin: 0;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
