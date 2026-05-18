@@ -10,18 +10,42 @@ const tools: { tool: EditorTool; label: string; hint: string }[] = [
   { tool: 'image', label: 'Image', hint: 'Draw soon' },
 ]
 
+const toolIcons: Record<EditorTool, string> = {
+  select: 'M8 3l8 8-4 1-1 4-8-13h5z',
+  rect: 'M4 5h12v10H4z',
+  ellipse: 'M3 10c0-3.314 3.582-6 8-6s8 2.686 8 6-3.582 6-8 6-8-2.686-8-6z',
+  line: 'M4 15 16 5',
+  text: 'M5 5h10M10 5v10',
+  image: 'M4 5h12v10H4zm2 7 2.5-3 2.5 2 2-2 3 3',
+}
+
+function ToolGlyph({ tool }: { tool: EditorTool }) {
+  if (tool === 'line' || tool === 'text' || tool === 'image') {
+    return (
+      <svg viewBox="0 0 20 20" className="h-5 w-5 fill-none stroke-current stroke-[1.6]" aria-hidden="true">
+        <path d={toolIcons[tool]} strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    )
+  }
+
+  return (
+    <svg viewBox="0 0 20 20" className="h-5 w-5 fill-current" aria-hidden="true">
+      <path d={toolIcons[tool]} />
+    </svg>
+  )
+}
+
 export function ToolSidebar() {
   const activeTool = useCanvasStore((state) => state.activeTool)
   const setActiveTool = useCanvasStore((state) => state.setActiveTool)
 
   return (
-    <aside className="rounded-[28px] border border-white/60 bg-white/75 p-4 shadow-[0_24px_80px_rgba(76,48,11,0.12)] backdrop-blur">
-      <div className="mb-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-800/70">Tools</p>
-        <h2 className="mt-2 font-serif text-2xl text-slate-900">Palette</h2>
+    <aside className="rounded-[8px] border border-[var(--color-outline)] bg-[var(--color-surface)] p-2 shadow-[0_4px_12px_rgba(24,36,66,0.08)] lg:min-h-0">
+      <div className="mb-2 flex items-center justify-center border-b border-[var(--color-outline)] pb-2">
+        <span className="font-tech text-[11px] uppercase tracking-[0.08em] text-[var(--color-text-muted)]">Tools</span>
       </div>
 
-      <div className="space-y-2">
+      <div className="flex flex-row gap-2 overflow-auto lg:flex-col lg:overflow-visible">
         {tools.map(({ tool, label, hint }) => {
           const isActive = tool === activeTool
 
@@ -30,23 +54,25 @@ export function ToolSidebar() {
               key={tool}
               type="button"
               onClick={() => setActiveTool(tool)}
+              title={`${label} · ${hint}`}
               className={[
-                'w-full rounded-2xl border px-4 py-3 text-left transition',
+                'group relative flex h-10 min-w-10 items-center justify-center rounded-[4px] border transition',
                 isActive
-                  ? 'border-amber-500 bg-amber-100 text-slate-950 shadow-[inset_0_0_0_1px_rgba(217,119,6,0.2)]'
-                  : 'border-slate-200 bg-white text-slate-700 hover:border-amber-300 hover:bg-amber-50',
+                  ? 'border-[var(--color-accent)] bg-[var(--color-primary)] text-white'
+                  : 'border-transparent bg-transparent text-[var(--color-primary)] hover:border-[var(--color-outline)] hover:bg-[var(--color-surface-low)]',
               ].join(' ')}
             >
-              <div className="text-sm font-semibold">{label}</div>
-              <div className="mt-1 text-xs text-slate-500">{hint}</div>
+              {isActive ? <span className="absolute left-0 top-1 h-8 w-[3px] rounded-r bg-[var(--color-accent-strong)] lg:-left-2" /> : null}
+              <ToolGlyph tool={tool} />
+              <span className="sr-only">{label}</span>
             </button>
           )
         })}
       </div>
 
-      <p className="mt-4 text-sm leading-6 text-slate-600">
-        Current slice implements selection, move, history, duplication, and export scaffolding.
-      </p>
+      <div className="mt-3 hidden border-t border-[var(--color-outline)] pt-2 lg:block">
+        <p className="font-tech text-[11px] leading-4 text-[var(--color-text-muted)]">56px toolbar. Active tool uses indigo chrome and p5 pink marker.</p>
+      </div>
     </aside>
   )
 }

@@ -1,3 +1,4 @@
+import type { PropsWithChildren } from 'react'
 import type { CanvasElement } from '../types/canvas'
 import { useCanvasStore } from '../store/canvasStore'
 
@@ -14,16 +15,28 @@ interface NumberFieldProps {
 
 function NumberField({ label, value, onChange, step = 1 }: NumberFieldProps) {
   return (
-    <label className="space-y-2 text-sm text-slate-700">
-      <span className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</span>
+    <label className="grid grid-cols-[44px_minmax(0,1fr)] items-center gap-2 text-[12px] text-[var(--color-text)]">
+      <span className="font-tech text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--color-text-muted)]">{label}</span>
       <input
         type="number"
         value={value}
         step={step}
         onChange={(event) => onChange(Number(event.target.value))}
-        className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 outline-none transition focus:border-amber-400"
+        className="font-tech h-8 w-full rounded-[4px] border border-[var(--color-outline)] bg-[var(--color-surface)] px-2 text-right outline-none transition focus:border-[var(--color-accent)]"
       />
     </label>
+  )
+}
+
+function Section({ title, children }: PropsWithChildren<{ title: string }>) {
+  return (
+    <section className="border-t border-[var(--color-outline)] pt-3 first:border-t-0 first:pt-0">
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="text-[13px] font-semibold text-[var(--color-primary)]">{title}</h3>
+        <span className="font-tech text-[11px] text-[var(--color-text-muted)]">edit</span>
+      </div>
+      <div className="space-y-2">{children}</div>
+    </section>
   )
 }
 
@@ -33,58 +46,49 @@ export function PropertiesPanel({ selectedElement }: PropertiesPanelProps) {
   const updateElement = useCanvasStore((state) => state.updateElement)
 
   return (
-    <aside className="rounded-[28px] border border-white/60 bg-white/75 p-4 shadow-[0_24px_80px_rgba(76,48,11,0.12)] backdrop-blur">
-      <div className="mb-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-800/70">Inspector</p>
-        <h2 className="mt-2 font-serif text-2xl text-slate-900">Properties</h2>
+    <aside className="rounded-[8px] border border-[var(--color-outline)] bg-[var(--color-surface)] p-3 shadow-[0_4px_12px_rgba(24,36,66,0.08)]">
+      <div className="mb-3 border-b border-[var(--color-outline)] pb-3">
+        <p className="font-tech text-[11px] uppercase tracking-[0.08em] text-[var(--color-text-muted)]">Inspector</p>
+        <h2 className="mt-1 text-[16px] font-semibold text-[var(--color-primary)]">Properties</h2>
       </div>
 
-      <div className="space-y-4">
-        <label className="space-y-2 text-sm text-slate-700">
-          <span className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Background</span>
-          <input
-            type="color"
-            value={canvas.background}
-            onChange={(event) => updateCanvasBackground(event.target.value)}
-            className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-2"
-          />
-        </label>
+      <div className="space-y-3">
+        <Section title="Canvas">
+          <label className="grid grid-cols-[72px_minmax(0,1fr)] items-center gap-2 text-[12px] text-[var(--color-text)]">
+            <span className="font-tech text-[11px] uppercase tracking-[0.06em] text-[var(--color-text-muted)]">Background</span>
+            <div className="flex items-center gap-2 rounded-[4px] border border-[var(--color-outline)] bg-[var(--color-surface)] px-2 py-1">
+              <input
+                type="color"
+                value={canvas.background}
+                onChange={(event) => updateCanvasBackground(event.target.value)}
+                className="h-6 w-8 border-0 bg-transparent p-0"
+              />
+              <span className="font-tech text-[12px] text-[var(--color-text)]">{canvas.background}</span>
+            </div>
+          </label>
+        </Section>
 
         {selectedElement ? (
-          <div className="space-y-4 border-t border-slate-200 pt-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Selected</p>
-              <p className="mt-1 text-sm font-semibold text-slate-800">{selectedElement.type}</p>
+          <>
+            <div className="flex items-center justify-between rounded-[4px] border border-[var(--color-outline)] bg-[var(--color-surface-low)] px-2 py-2">
+              <div className="flex items-center gap-2">
+                <span className="h-7 w-1 rounded-full bg-[var(--color-accent-strong)]" />
+                <div>
+                  <p className="font-tech text-[11px] uppercase tracking-[0.06em] text-[var(--color-text-muted)]">Selected layer</p>
+                  <p className="text-[13px] font-semibold capitalize text-[var(--color-primary)]">{selectedElement.type}</p>
+                </div>
+              </div>
+              <span className="font-tech text-[11px] text-[var(--color-text-muted)]">#{selectedElement.id.slice(0, 6)}</span>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <Section title="Transform">
+              <NumberField label="X" value={selectedElement.x} onChange={(value) => updateElement(selectedElement.id, { x: value })} />
+              <NumberField label="Y" value={selectedElement.y} onChange={(value) => updateElement(selectedElement.id, { y: value })} />
+              <NumberField label="Width" value={selectedElement.width} onChange={(value) => updateElement(selectedElement.id, { width: value })} />
+              <NumberField label="Height" value={selectedElement.height} onChange={(value) => updateElement(selectedElement.id, { height: value })} />
+              <NumberField label="Rotate" value={selectedElement.rotation} onChange={(value) => updateElement(selectedElement.id, { rotation: value })} />
               <NumberField
-                label="X"
-                value={selectedElement.x}
-                onChange={(value) => updateElement(selectedElement.id, { x: value })}
-              />
-              <NumberField
-                label="Y"
-                value={selectedElement.y}
-                onChange={(value) => updateElement(selectedElement.id, { y: value })}
-              />
-              <NumberField
-                label="Width"
-                value={selectedElement.width}
-                onChange={(value) => updateElement(selectedElement.id, { width: value })}
-              />
-              <NumberField
-                label="Height"
-                value={selectedElement.height}
-                onChange={(value) => updateElement(selectedElement.id, { height: value })}
-              />
-              <NumberField
-                label="Rotation"
-                value={selectedElement.rotation}
-                onChange={(value) => updateElement(selectedElement.id, { rotation: value })}
-              />
-              <NumberField
-                label="Opacity"
+                label="Alpha"
                 value={selectedElement.style.opacity}
                 step={0.05}
                 onChange={(value) =>
@@ -95,105 +99,95 @@ export function PropertiesPanel({ selectedElement }: PropertiesPanelProps) {
                   })
                 }
               />
-            </div>
+            </Section>
 
-            <label className="space-y-2 text-sm text-slate-700">
-              <span className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Fill</span>
-              <div className="flex gap-2">
-                <input
-                  type="color"
-                  value={selectedElement.style.fill === 'none' ? '#000000' : selectedElement.style.fill}
-                  onChange={(event) =>
-                    updateElement(selectedElement.id, {
-                      style: {
-                        fill: event.target.value,
-                      },
-                    })
-                  }
-                  className="h-11 flex-1 rounded-2xl border border-slate-200 bg-white px-2"
-                />
+            <Section title="Fill">
+              <label className="grid grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-2 text-[12px] text-[var(--color-text)]">
+                <span className="font-tech text-[11px] uppercase tracking-[0.06em] text-[var(--color-text-muted)]">Fill</span>
+                <div className="flex items-center gap-2 rounded-[4px] border border-[var(--color-outline)] bg-[var(--color-surface)] px-2 py-1">
+                  <input
+                    type="color"
+                    value={selectedElement.style.fill === 'none' ? '#000000' : selectedElement.style.fill}
+                    onChange={(event) => updateElement(selectedElement.id, { style: { fill: event.target.value } })}
+                    className="h-6 w-8 border-0 bg-transparent p-0"
+                  />
+                  <span className="font-tech text-[12px]">{selectedElement.style.fill}</span>
+                </div>
                 <button
                   type="button"
                   onClick={() => updateElement(selectedElement.id, { style: { fill: 'none' } })}
-                  className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-700"
+                  className="h-8 rounded-[4px] border border-[var(--color-outline)] px-2 text-[12px] text-[var(--color-text-muted)] hover:bg-[var(--color-surface-low)]"
                 >
                   None
                 </button>
-              </div>
-            </label>
+              </label>
+            </Section>
 
-            <label className="space-y-2 text-sm text-slate-700">
-              <span className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Stroke</span>
-              <div className="flex gap-2">
-                <input
-                  type="color"
-                  value={selectedElement.style.stroke === 'none' ? '#000000' : selectedElement.style.stroke}
-                  onChange={(event) =>
-                    updateElement(selectedElement.id, {
-                      style: {
-                        stroke: event.target.value,
-                        strokeWeight: selectedElement.style.strokeWeight || 1,
-                      },
-                    })
-                  }
-                  className="h-11 flex-1 rounded-2xl border border-slate-200 bg-white px-2"
-                />
+            <Section title="Stroke">
+              <label className="grid grid-cols-[52px_minmax(0,1fr)_auto] items-center gap-2 text-[12px] text-[var(--color-text)]">
+                <span className="font-tech text-[11px] uppercase tracking-[0.06em] text-[var(--color-text-muted)]">Stroke</span>
+                <div className="flex items-center gap-2 rounded-[4px] border border-[var(--color-outline)] bg-[var(--color-surface)] px-2 py-1">
+                  <input
+                    type="color"
+                    value={selectedElement.style.stroke === 'none' ? '#000000' : selectedElement.style.stroke}
+                    onChange={(event) =>
+                      updateElement(selectedElement.id, {
+                        style: {
+                          stroke: event.target.value,
+                          strokeWeight: selectedElement.style.strokeWeight || 1,
+                        },
+                      })
+                    }
+                    className="h-6 w-8 border-0 bg-transparent p-0"
+                  />
+                  <span className="font-tech text-[12px]">{selectedElement.style.stroke}</span>
+                </div>
                 <button
                   type="button"
                   onClick={() => updateElement(selectedElement.id, { style: { stroke: 'none', strokeWeight: 0 } })}
-                  className="rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-700"
+                  className="h-8 rounded-[4px] border border-[var(--color-outline)] px-2 text-[12px] text-[var(--color-text-muted)] hover:bg-[var(--color-surface-low)]"
                 >
                   None
                 </button>
-              </div>
-            </label>
+              </label>
 
-            <NumberField
-              label="Stroke Weight"
-              value={selectedElement.style.strokeWeight}
-              onChange={(value) =>
-                updateElement(selectedElement.id, {
-                  style: {
-                    strokeWeight: value,
-                  },
-                })
-              }
-            />
+              <NumberField
+                label="Weight"
+                value={selectedElement.style.strokeWeight}
+                onChange={(value) => updateElement(selectedElement.id, { style: { strokeWeight: value } })}
+              />
+            </Section>
 
             {selectedElement.type === 'text' ? (
-              <>
-                <label className="space-y-2 text-sm text-slate-700">
-                  <span className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Text</span>
+              <Section title="Typography">
+                <label className="grid gap-2 text-[12px] text-[var(--color-text)]">
+                  <span className="font-tech text-[11px] uppercase tracking-[0.06em] text-[var(--color-text-muted)]">Text</span>
                   <textarea
                     rows={4}
                     value={selectedElement.text ?? ''}
                     onChange={(event) => updateElement(selectedElement.id, { text: event.target.value })}
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 outline-none transition focus:border-amber-400"
+                    className="min-h-24 w-full rounded-[4px] border border-[var(--color-outline)] bg-[var(--color-surface)] px-2 py-2 text-[13px] outline-none transition focus:border-[var(--color-accent)]"
                   />
                 </label>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <NumberField
-                    label="Font Size"
-                    value={selectedElement.fontSize ?? 24}
-                    onChange={(value) => updateElement(selectedElement.id, { fontSize: value })}
-                  />
-                  <label className="space-y-2 text-sm text-slate-700">
-                    <span className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Font Family</span>
+                <div className="space-y-2">
+                  <NumberField label="Size" value={selectedElement.fontSize ?? 24} onChange={(value) => updateElement(selectedElement.id, { fontSize: value })} />
+                  <label className="grid grid-cols-[44px_minmax(0,1fr)] items-center gap-2 text-[12px] text-[var(--color-text)]">
+                    <span className="font-tech text-[11px] uppercase tracking-[0.06em] text-[var(--color-text-muted)]">Font</span>
                     <input
                       type="text"
                       value={selectedElement.fontFamily ?? 'Georgia'}
                       onChange={(event) => updateElement(selectedElement.id, { fontFamily: event.target.value })}
-                      className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 outline-none transition focus:border-amber-400"
+                      className="h-8 w-full rounded-[4px] border border-[var(--color-outline)] bg-[var(--color-surface)] px-2 outline-none transition focus:border-[var(--color-accent)]"
                     />
                   </label>
                 </div>
-              </>
+              </Section>
             ) : null}
-          </div>
+          </>
         ) : (
-          <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm leading-6 text-slate-600">
-            Select an element to edit its position, size, and style. The canvas starts with sample content so you can test move and export immediately.
+          <div className="rounded-[4px] border border-dashed border-[var(--color-outline)] bg-[var(--color-surface-low)] px-3 py-4 text-[13px] leading-5 text-[var(--color-text-muted)]">
+            Choose a layer on the stage to edit transform, fill, stroke, and typography. The inspector is intentionally dense and keyboard friendly.
           </div>
         )}
       </div>

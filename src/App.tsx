@@ -17,7 +17,7 @@ function App() {
   const redo = useCanvasStore((state) => state.redo)
   const historyLength = useCanvasStore((state) => state.history.length)
   const futureLength = useCanvasStore((state) => state.future.length)
-  const [statusMessage, setStatusMessage] = useState('Select and drag elements on the canvas.')
+  const [statusMessage, setStatusMessage] = useState('Select and drag elements. Export copies p5.js to the clipboard.')
 
   const selectedElement = useMemo(
     () => elements.find((element) => element.id === selectedElementId) ?? null,
@@ -102,18 +102,20 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(200,90,0,0.12),_transparent_32%),linear-gradient(180deg,_#f6f1e8_0%,_#efe6d7_100%)] text-slate-900">
-      <div className="mx-auto flex min-h-screen max-w-[1600px] flex-col px-4 py-4 lg:px-6">
+    <div className="min-h-screen bg-[var(--color-background)] text-[var(--color-text)] font-ui">
+      <div className="mx-auto flex min-h-screen max-w-[1680px] flex-col px-3 py-3 lg:px-4">
         <TopBar
           canRedo={futureLength > 0}
           canUndo={historyLength > 0}
+          elementCount={elements.length}
           onExport={handleExport}
           onRedo={redo}
           onUndo={undo}
+          selectedElementType={selectedElement?.type ?? null}
           statusMessage={statusMessage}
         />
 
-        <div className="mt-4 grid flex-1 gap-4 lg:grid-cols-[220px_minmax(0,1fr)_320px]">
+        <div className="mt-4 grid flex-1 gap-4 lg:grid-cols-[56px_minmax(0,1fr)_280px] xl:grid-cols-[56px_minmax(0,1fr)_280px]">
           <ToolSidebar />
           <CanvasStage />
           <PropertiesPanel selectedElement={selectedElement} />

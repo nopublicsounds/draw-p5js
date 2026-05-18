@@ -1,9 +1,28 @@
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap');
 @import 'tailwindcss';
 
 :root {
-  font-family: 'Avenir Next', 'Segoe UI', sans-serif;
-  color: #172033;
-  background: #efe6d7;
+  --font-ui: 'Inter', sans-serif;
+  --font-tech: 'Geist', ui-monospace, monospace;
+  --color-background: #f8f9ff;
+  --color-surface-low: #eff4ff;
+  --color-surface: #ffffff;
+  --color-surface-high: #e5eeff;
+  --color-surface-variant: #d3e4fe;
+  --color-outline: #c6c6ce;
+  --color-outline-strong: #75777e;
+  --color-text: #0b1c30;
+  --color-text-muted: #45464e;
+  --color-primary: #182442;
+  --color-primary-strong: #2e3a59;
+  --color-primary-soft: #dae2ff;
+  --color-accent: #b90042;
+  --color-accent-strong: #e31757;
+  --radius-ui: 0.25rem;
+  --radius-panel: 0.5rem;
+  font-family: var(--font-ui);
+  color: var(--color-text);
+  background: var(--color-background);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -22,6 +41,9 @@ body,
 
 body {
   margin: 0;
+  background:
+    linear-gradient(180deg, rgba(211, 228, 254, 0.4) 0, rgba(248, 249, 255, 0.92) 96px),
+    var(--color-background);
 }
 
 button,
@@ -33,4 +55,16 @@ textarea {
 
 button {
   cursor: pointer;
+}
+
+.font-ui {
+  font-family: var(--font-ui);
+}
+
+.font-tech {
+  font-family: var(--font-tech);
+}
+
+::selection {
+  background: rgba(185, 0, 66, 0.18);
 }
