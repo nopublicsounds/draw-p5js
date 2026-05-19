@@ -28,7 +28,11 @@ const transformStart = (element: CanvasElement) => {
   const centerX = element.type === 'line' ? ((element.x2 ?? element.x + element.width) + element.x) / 2 : element.x + element.width / 2
   const centerY = element.type === 'line' ? ((element.y2 ?? element.y + element.height) + element.y) / 2 : element.y + element.height / 2
 
-  return [`push();`, `translate(${centerX}, ${centerY});`, `rotate(${element.rotation});`]
+  return [
+    `push();`,
+    `translate(${centerX}, ${centerY});`,
+    `rotate(${element.rotation});`,
+  ]
 }
 
 const elementToP5 = (element: CanvasElement, index: number) => {
@@ -74,6 +78,7 @@ export const exportCanvasToP5 = (canvas: CanvasState) => {
 
 function draw() {
   background(${r}, ${g}, ${b});
+
   ${canvas.elements.map((element, index) => elementToP5(element, index)).join('\n\n  ')}
 }`
 }
