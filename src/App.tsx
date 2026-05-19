@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CanvasStage } from './components/CanvasStage'
+import { AlignmentToolbar } from './components/AlignmentToolbar'
 import { PropertiesPanel } from './components/PropertiesPanel'
 import { ToolSidebar } from './components/ToolSidebar'
 import { TopBar } from './components/TopBar'
@@ -10,9 +11,13 @@ function App() {
   const canvas = useCanvasStore((state) => state.canvas)
   const elements = useCanvasStore((state) => state.canvas.elements)
   const selectedElementId = useCanvasStore((state) => state.selectedElementId)
+  const selectedElementIds = useCanvasStore((state) => state.selectedElementIds)
   const nudgeSelectedElement = useCanvasStore((state) => state.nudgeSelectedElement)
+  const nudgeSelectedElements = useCanvasStore((state) => state.nudgeSelectedElements)
   const deleteSelectedElement = useCanvasStore((state) => state.deleteSelectedElement)
+  const deleteSelectedElements = useCanvasStore((state) => state.deleteSelectedElements)
   const duplicateSelectedElement = useCanvasStore((state) => state.duplicateSelectedElement)
+  const selectAll = useCanvasStore((state) => state.selectAll)
   const undo = useCanvasStore((state) => state.undo)
   const redo = useCanvasStore((state) => state.redo)
   const historyLength = useCanvasStore((state) => state.history.length)
@@ -31,6 +36,12 @@ function App() {
         target instanceof HTMLInputElement ||
         target instanceof HTMLTextAreaElement ||
         target?.isContentEditable
+
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a') {
+        event.preventDefault()
+        selectAll()
+        return
+      }
 
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
         event.preventDefault()
@@ -55,13 +66,17 @@ function App() {
         return
       }
 
-      if (!selectedElementId || isTextInput) {
+      if ((!selectedElementId && selectedElementIds.length === 0) || isTextInput) {
         return
       }
 
       if (event.key === 'Backspace' || event.key === 'Delete') {
         event.preventDefault()
-        deleteSelectedElement()
+        if (selectedElementIds.length > 1) {
+          deleteSelectedElements()
+        } else {
+          deleteSelectedElement()
+        }
         return
       }
 
@@ -69,16 +84,32 @@ function App() {
 
       if (event.key === 'ArrowUp') {
         event.preventDefault()
-        nudgeSelectedElement(0, -distance)
+        if (selectedElementIds.length > 1) {
+          nudgeSelectedElements(0, -distance)
+        } else {
+          nudgeSelectedElement(0, -distance)
+        }
       } else if (event.key === 'ArrowDown') {
         event.preventDefault()
-        nudgeSelectedElement(0, distance)
+        if (selectedElementIds.length > 1) {
+          nudgeSelectedElements(0, distance)
+        } else {
+          nudgeSelectedElement(0, distance)
+        }
       } else if (event.key === 'ArrowLeft') {
         event.preventDefault()
-        nudgeSelectedElement(-distance, 0)
+        if (selectedElementIds.length > 1) {
+          nudgeSelectedElements(-distance, 0)
+        } else {
+          nudgeSelectedElement(-distance, 0)
+        }
       } else if (event.key === 'ArrowRight') {
         event.preventDefault()
-        nudgeSelectedElement(distance, 0)
+        if (selectedElementIds.length > 1) {
+          nudgeSelectedElements(distance, 0)
+        } else {
+          nudgeSelectedElement(distance, 0)
+        }
       }
     }
 
@@ -87,7 +118,7 @@ function App() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [deleteSelectedElement, duplicateSelectedElement, nudgeSelectedElement, redo, selectedElementId, undo])
+  }, [deleteSelectedElement, deleteSelectedElements, duplicateSelectedElement, nudgeSelectedElement, nudgeSelectedElements, redo, selectedElementId, selectedElementIds, selectAll, undo])
 
   const handleExport = async () => {
     const code = exportCanvasToP5(canvas)
@@ -117,7 +148,10 @@ function App() {
 
         <div className="mt-4 grid flex-1 gap-4 lg:grid-cols-[56px_minmax(0,1fr)_280px] xl:grid-cols-[56px_minmax(0,1fr)_280px]">
           <ToolSidebar />
-          <CanvasStage />
+          <div className="flex flex-col gap-4">
+            <CanvasStage />
+            <AlignmentToolbar />
+          </div>
           <PropertiesPanel selectedElement={selectedElement} />
         </div>
       </div>
