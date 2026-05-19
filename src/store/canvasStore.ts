@@ -85,6 +85,8 @@ interface CanvasStore {
   toggleSelection: (id: string) => void
   selectAll: () => void
   clearSelection: () => void
+  /** Replace the entire canvas state after loading JSON or restoring from storage. */
+  setCanvasState: (canvas: CanvasState) => void
   updateCanvasSize: (width: number, height: number) => void
   updateCanvasBackground: (background: string) => void
   addElement: (element: CanvasElement) => void
@@ -150,6 +152,15 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
     set({ selectedElementIds: allIds })
   },
   clearSelection: () => set({ selectedElementId: null, selectedElementIds: [] }),
+  setCanvasState: (canvas) =>
+    set({
+      canvas: cloneCanvasState(canvas),
+      selectedElementId: null,
+      selectedElementIds: [],
+      activeTool: 'select',
+      history: [],
+      future: [],
+    }),
   updateCanvasSize: (width, height) => {
     set((state) => ({
       canvas: {
