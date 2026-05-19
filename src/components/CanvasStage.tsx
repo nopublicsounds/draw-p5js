@@ -285,12 +285,6 @@ interface DrawingState {
   currentPoint: Point
 }
 
-interface TextEditState {
-  id: string
-  x: number
-  y: number
-}
-
 export function CanvasStage() {
   const canvasState = useCanvasStore((state) => state.canvas)
   const elements = useCanvasStore((state) => state.canvas.elements)
@@ -310,7 +304,6 @@ export function CanvasStage() {
   const [dragState, setDragState] = useState<DragState | null>(null)
   const [drawingState, setDrawingState] = useState<DrawingState | null>(null)
   const [selectionRect, setSelectionRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
-  const [textEditState, setTextEditState] = useState<TextEditState | null>(null)
   const horizontalRulerCount = Math.floor(canvasState.width / 100) + 1
   const verticalRulerCount = Math.floor(canvasState.height / 100) + 1
 
@@ -617,7 +610,6 @@ export function CanvasStage() {
       }
 
       addElement(newElement)
-      setTextEditState({ id: newElement.id, x: point.x, y: point.y })
       return
     }
 
