@@ -213,7 +213,26 @@ const drawElement = (ctx: CanvasRenderingContext2D, element: CanvasElement) => {
   ctx.restore()
 }
 
-const drawSelection = (ctx: CanvasRenderingContext2D, element: CanvasElement) => {
+const drawSelection = (ctx: CanvasRenderingContext2D, elements: CanvasElement[], selectedIds: string[]) => {
+  if (selectedIds.length === 0) return
+
+  if (selectedIds.length === 1) {
+    const element = elements.find((e) => e.id === selectedIds[0])
+    if (element) {
+      drawSingleSelection(ctx, element)
+    }
+  } else {
+    // For multi-select, just draw selection boxes
+    for (const id of selectedIds) {
+      const element = elements.find((e) => e.id === id)
+      if (element) {
+        drawMultiSelectBox(ctx, element)
+      }
+    }
+  }
+}
+
+const drawSingleSelection = (ctx: CanvasRenderingContext2D, element: CanvasElement) => {
   const bounds = getElementBounds(element)
   const handlePoints: Point[] = [
     { x: bounds.x, y: bounds.y },
@@ -247,17 +266,51 @@ const drawSelection = (ctx: CanvasRenderingContext2D, element: CanvasElement) =>
   ctx.restore()
 }
 
+const drawMultiSelectBox = (ctx: CanvasRenderingContext2D, element: CanvasElement) => {
+  const bounds = getElementBounds(element)
+
+  ctx.save()
+  ctx.strokeStyle = '#e31757'
+  ctx.lineWidth = 1.5
+  ctx.setLineDash([4, 3])
+  ctx.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height)
+  ctx.setLineDash([])
+  ctx.restore()
+}
+
+interface DrawingState {
+  type: 'drawing'
+  tool: 'rect' | 'ellipse' | 'line'
+  startPoint: Point
+  currentPoint: Point
+}
+
+interface TextEditState {
+  id: string
+  x: number
+  y: number
+}
+
 export function CanvasStage() {
   const canvasState = useCanvasStore((state) => state.canvas)
   const elements = useCanvasStore((state) => state.canvas.elements)
   const selectedElementId = useCanvasStore((state) => state.selectedElementId)
+  const selectedElementIds = useCanvasStore((state) => state.selectedElementIds)
   const activeTool = useCanvasStore((state) => state.activeTool)
   const selectElement = useCanvasStore((state) => state.selectElement)
+  const selectElements = useCanvasStore((state) => state.selectElements)
+  const addToSelection = useCanvasStore((state) => state.addToSelection)
+  const toggleSelection = useCanvasStore((state) => state.toggleSelection)
+  const clearSelection = useCanvasStore((state) => state.clearSelection)
   const updateElement = useCanvasStore((state) => state.updateElement)
+  const addElement = useCanvasStore((state) => state.addElement)
   const pushHistorySnapshot = useCanvasStore((state) => state.pushHistorySnapshot)
   const setActiveTool = useCanvasStore((state) => state.setActiveTool)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const [dragState, setDragState] = useState<DragState | null>(null)
+  const [drawingState, setDrawingState] = useState<DrawingState | null>(null)
+  const [selectionRect, setSelectionRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
+  const [textEditState, setTextEditState] = useState<TextEditState | null>(null)
   const horizontalRulerCount = Math.floor(canvasState.width / 100) + 1
   const verticalRulerCount = Math.floor(canvasState.height / 100) + 1
 
@@ -289,13 +342,54 @@ export function CanvasStage() {
       drawElement(ctx, element)
     }
 
-    if (selectedElementId) {
-      const selectedElement = elements.find((element) => element.id === selectedElementId)
-      if (selectedElement) {
-        drawSelection(ctx, selectedElement)
+    // Draw drawing preview
+    if (drawingState && drawingState.type === 'drawing') {
+      ctx.save()
+      ctx.strokeStyle = '#182442'
+      ctx.lineWidth = 2
+      ctx.fillStyle = 'rgba(74, 144, 217, 0.1)'
+
+      if (drawingState.tool === 'rect') {
+        const width = drawingState.currentPoint.x - drawingState.startPoint.x
+        const height = drawingState.currentPoint.y - drawingState.startPoint.y
+        ctx.fillRect(drawingState.startPoint.x, drawingState.startPoint.y, width, height)
+        ctx.strokeRect(drawingState.startPoint.x, drawingState.startPoint.y, width, height)
+      } else if (drawingState.tool === 'ellipse') {
+        const radiusX = (drawingState.currentPoint.x - drawingState.startPoint.x) / 2
+        const radiusY = (drawingState.currentPoint.y - drawingState.startPoint.y) / 2
+        const centerX = drawingState.startPoint.x + radiusX
+        const centerY = drawingState.startPoint.y + radiusY
+
+        ctx.beginPath()
+        ctx.ellipse(centerX, centerY, Math.abs(radiusX), Math.abs(radiusY), 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.stroke()
+      } else if (drawingState.tool === 'line') {
+        ctx.beginPath()
+        ctx.moveTo(drawingState.startPoint.x, drawingState.startPoint.y)
+        ctx.lineTo(drawingState.currentPoint.x, drawingState.currentPoint.y)
+        ctx.stroke()
       }
+
+      ctx.restore()
     }
-  }, [canvasState, elements, selectedElementId])
+
+    // Draw selection rectangle for multi-select
+    if (selectionRect) {
+      ctx.save()
+      ctx.strokeStyle = '#e31757'
+      ctx.fillStyle = 'rgba(227, 23, 87, 0.05)'
+      ctx.lineWidth = 1
+      ctx.setLineDash([4, 2])
+      ctx.fillRect(selectionRect.x, selectionRect.y, selectionRect.width, selectionRect.height)
+      ctx.strokeRect(selectionRect.x, selectionRect.y, selectionRect.width, selectionRect.height)
+      ctx.setLineDash([])
+      ctx.restore()
+    }
+
+    // Draw selections
+    drawSelection(ctx, elements, selectedElementIds)
+  }, [canvasState, elements, selectedElementId, selectedElementIds, drawingState, selectionRect])
 
   useEffect(() => {
     if (!dragState) {
@@ -312,16 +406,37 @@ export function CanvasStage() {
       const dx = point.x - dragState.startPoint.x
       const dy = point.y - dragState.startPoint.y
 
-      updateElement(
-        dragState.id,
-        {
-          x: dragState.initialElement.x + dx,
-          y: dragState.initialElement.y + dy,
-          x2: dragState.initialElement.x2 !== undefined ? dragState.initialElement.x2 + dx : undefined,
-          y2: dragState.initialElement.y2 !== undefined ? dragState.initialElement.y2 + dy : undefined,
-        },
-        false,
-      )
+      // If multiple elements are selected, move them all
+      if (selectedElementIds.length > 1 && selectedElementIds.includes(dragState.id)) {
+        const selectedSet = new Set(selectedElementIds)
+        for (const element of dragState.beforeCanvas.elements) {
+          if (selectedSet.has(element.id)) {
+            updateElement(
+              element.id,
+              {
+                x: element.x + dx,
+                y: element.y + dy,
+                x2: element.x2 !== undefined ? element.x2 + dx : undefined,
+                y2: element.y2 !== undefined ? element.y2 + dy : undefined,
+              },
+              false,
+            )
+          }
+        }
+      } else {
+        // Single element drag
+        updateElement(
+          dragState.id,
+          {
+            x: dragState.initialElement.x + dx,
+            y: dragState.initialElement.y + dy,
+            x2: dragState.initialElement.x2 !== undefined ? dragState.initialElement.x2 + dx : undefined,
+            y2: dragState.initialElement.y2 !== undefined ? dragState.initialElement.y2 + dy : undefined,
+          },
+          false,
+        )
+      }
+
       setDragState((currentState) => (currentState ? { ...currentState, moved: true } : currentState))
     }
 
@@ -339,7 +454,126 @@ export function CanvasStage() {
       window.removeEventListener('mousemove', handleMouseMove)
       window.removeEventListener('mouseup', handleMouseUp)
     }
-  }, [dragState, pushHistorySnapshot, updateElement])
+  }, [dragState, pushHistorySnapshot, updateElement, selectedElementIds])
+
+  useEffect(() => {
+    if (!drawingState) {
+      return
+    }
+
+    const handleMouseMove = (event: MouseEvent) => {
+      const canvas = canvasRef.current
+      if (!canvas) {
+        return
+      }
+
+      const point = getCanvasPoint(event, canvas)
+      setDrawingState((state) => (state ? { ...state, currentPoint: point } : state))
+    }
+
+    const handleMouseUp = () => {
+      const canvas = canvasRef.current
+      if (!canvas || !drawingState) {
+        return
+      }
+
+      const width = drawingState.currentPoint.x - drawingState.startPoint.x
+      const height = drawingState.currentPoint.y - drawingState.startPoint.y
+
+      if (Math.abs(width) < 2 || Math.abs(height) < 2) {
+        // Ignore tiny drawings
+        setDrawingState(null)
+        return
+      }
+
+      const baseElement: CanvasElement = {
+        id: crypto.randomUUID(),
+        x: Math.min(drawingState.startPoint.x, drawingState.currentPoint.x),
+        y: Math.min(drawingState.startPoint.y, drawingState.currentPoint.y),
+        width: Math.abs(width),
+        height: Math.abs(height),
+        rotation: 0,
+        type: drawingState.tool,
+        style: {
+          fill: '#4A90D9',
+          stroke: 'none',
+          strokeWeight: 0,
+          opacity: 1,
+        },
+      }
+
+      if (drawingState.tool === 'line') {
+        Object.assign(baseElement, {
+          x: drawingState.startPoint.x,
+          y: drawingState.startPoint.y,
+          x2: drawingState.currentPoint.x,
+          y2: drawingState.currentPoint.y,
+          width: 0,
+          height: 0,
+        })
+      }
+
+      addElement(baseElement)
+      setDrawingState(null)
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [drawingState, addElement])
+
+  useEffect(() => {
+    if (!selectionRect) {
+      return
+    }
+
+    const handleMouseMove = (event: MouseEvent) => {
+      const canvas = canvasRef.current
+      if (!canvas) {
+        return
+      }
+
+      const point = getCanvasPoint(event, canvas)
+      const x = Math.min(selectionRect.x, point.x)
+      const y = Math.min(selectionRect.y, point.y)
+      const width = Math.abs(point.x - selectionRect.x)
+      const height = Math.abs(point.y - selectionRect.y)
+
+      setSelectionRect({ x, y, width, height })
+    }
+
+    const handleMouseUp = () => {
+      if (selectionRect) {
+        const selectedIds = elements
+          .filter((element) => {
+            const bounds = getElementBounds(element)
+            return (
+              bounds.x < selectionRect.x + selectionRect.width &&
+              bounds.x + bounds.width > selectionRect.x &&
+              bounds.y < selectionRect.y + selectionRect.height &&
+              bounds.y + bounds.height > selectionRect.y
+            )
+          })
+          .map((e) => e.id)
+
+        selectElements(selectedIds)
+      }
+
+      setSelectionRect(null)
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [selectionRect, elements, selectElements])
 
   const handleMouseDown = (event: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current
@@ -350,18 +584,108 @@ export function CanvasStage() {
     const point = getCanvasPoint(event.nativeEvent, canvas)
     const hitElement = [...elements].reverse().find((element) => pointInElement(point, element))
 
-    if (!hitElement) {
-      selectElement(null)
+    // Handle drawing tools
+    if (activeTool === 'rect' || activeTool === 'ellipse' || activeTool === 'line') {
+      setDrawingState({
+        type: 'drawing',
+        tool: activeTool,
+        startPoint: point,
+        currentPoint: point,
+      })
       return
     }
 
-    selectElement(hitElement.id)
+    // Handle text tool
+    if (activeTool === 'text') {
+      const newElement: CanvasElement = {
+        id: crypto.randomUUID(),
+        type: 'text',
+        x: point.x,
+        y: point.y,
+        width: 200,
+        height: 60,
+        rotation: 0,
+        text: '',
+        fontSize: 24,
+        fontFamily: 'Inter',
+        style: {
+          fill: '#172033',
+          stroke: 'none',
+          strokeWeight: 0,
+          opacity: 1,
+        },
+      }
+
+      addElement(newElement)
+      setTextEditState({ id: newElement.id, x: point.x, y: point.y })
+      return
+    }
+
+    // Handle image tool
+    if (activeTool === 'image') {
+      const input = document.createElement('input')
+      input.type = 'file'
+      input.accept = 'image/*'
+      input.onchange = async (e) => {
+        const file = (e.target as HTMLInputElement).files?.[0]
+        if (!file) return
+
+        const reader = new FileReader()
+        reader.onload = (event) => {
+          const src = event.target?.result as string
+          const newElement: CanvasElement = {
+            id: crypto.randomUUID(),
+            type: 'image',
+            x: point.x,
+            y: point.y,
+            width: 120,
+            height: 120,
+            rotation: 0,
+            src,
+            style: {
+              fill: 'none',
+              stroke: 'none',
+              strokeWeight: 0,
+              opacity: 1,
+            },
+          }
+
+          addElement(newElement)
+        }
+
+        reader.readAsDataURL(file)
+      }
+
+      input.click()
+      return
+    }
+
+    // Handle selection
+    if (!hitElement) {
+      if (event.shiftKey) {
+        // Start rubber-band selection
+        setSelectionRect({ x: point.x, y: point.y, width: 0, height: 0 })
+      } else {
+        clearSelection()
+      }
+      return
+    }
+
+    // Selection logic for select tool
+    if (event.shiftKey) {
+      toggleSelection(hitElement.id)
+    } else if (event.ctrlKey || event.metaKey) {
+      addToSelection(hitElement.id)
+    } else {
+      selectElement(hitElement.id)
+    }
 
     if (activeTool !== 'select') {
       setActiveTool('select')
       return
     }
 
+    // Start dragging
     setDragState({
       id: hitElement.id,
       startPoint: point,
