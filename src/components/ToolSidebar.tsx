@@ -3,11 +3,11 @@ import { useCanvasStore } from '../store/canvasStore'
 
 const tools: { tool: EditorTool; label: string; hint: string }[] = [
   { tool: 'select', label: 'Select', hint: 'Move and inspect' },
-  { tool: 'rect', label: 'Rect', hint: 'Draw soon' },
-  { tool: 'ellipse', label: 'Ellipse', hint: 'Draw soon' },
-  { tool: 'line', label: 'Line', hint: 'Draw soon' },
-  { tool: 'text', label: 'Text', hint: 'Draw soon' },
-  { tool: 'image', label: 'Image', hint: 'Draw soon' },
+  { tool: 'rect', label: 'Rect', hint: 'Click-drag to draw' },
+  { tool: 'ellipse', label: 'Ellipse', hint: 'Click-drag to draw' },
+  { tool: 'line', label: 'Line', hint: 'Click-drag to draw' },
+  { tool: 'text', label: 'Text', hint: 'Click to place' },
+  { tool: 'image', label: 'Image', hint: 'Click for picker' },
 ]
 
 const toolIcons: Record<EditorTool, string> = {
