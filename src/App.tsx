@@ -1,11 +1,14 @@
-import { useEffect, useMemo, useState } from 'react'
-import { CanvasStage } from './components/CanvasStage'
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { AlignmentToolbar } from './components/AlignmentToolbar'
+import { CanvasStage } from './components/CanvasStage'
+import { ExportModal } from './components/ExportModal'
 import { PropertiesPanel } from './components/PropertiesPanel'
 import { ToolSidebar } from './components/ToolSidebar'
 import { TopBar } from './components/TopBar'
 import { useCanvasStore } from './store/canvasStore'
 import { exportCanvasToP5 } from './utils/exportP5'
+
+const CANVAS_STATE_STORAGE_KEY = 'draw-p5js.canvas-state'
 
 function App() {
   const canvas = useCanvasStore((state) => state.canvas)
@@ -18,16 +21,63 @@ function App() {
   const deleteSelectedElements = useCanvasStore((state) => state.deleteSelectedElements)
   const duplicateSelectedElement = useCanvasStore((state) => state.duplicateSelectedElement)
   const selectAll = useCanvasStore((state) => state.selectAll)
+  const setCanvasState = useCanvasStore((state) => state.setCanvasState)
   const undo = useCanvasStore((state) => state.undo)
   const redo = useCanvasStore((state) => state.redo)
   const historyLength = useCanvasStore((state) => state.history.length)
   const futureLength = useCanvasStore((state) => state.future.length)
-  const [statusMessage, setStatusMessage] = useState('Select and drag elements. Export copies p5.js to the clipboard.')
+  const [statusMessage, setStatusMessage] = useState('Select and drag elements. Export, save, or load canvas data.')
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const latestCanvasRef = useRef(canvas)
+
+  const restoredRef = useRef(false)
 
   const selectedElement = useMemo(
     () => elements.find((element) => element.id === selectedElementId) ?? null,
     [elements, selectedElementId],
   )
+
+  const p5Code = useMemo(() => exportCanvasToP5(canvas), [canvas])
+
+  useEffect(() => {
+    latestCanvasRef.current = canvas
+  }, [canvas])
+
+  useEffect(() => {
+    if (restoredRef.current) {
+      return
+    }
+
+    restoredRef.current = true
+
+    const savedCanvasState = window.localStorage.getItem(CANVAS_STATE_STORAGE_KEY)
+
+    if (!savedCanvasState) {
+      return
+    }
+
+    try {
+      const parsedCanvas = JSON.parse(savedCanvasState) as typeof canvas
+      setCanvasState(parsedCanvas)
+      setStatusMessage('Canvas restored from localStorage.')
+    } catch {
+      setStatusMessage('Saved canvas data could not be restored.')
+    }
+  }, [canvas, setCanvasState])
+
+  useEffect(() => {
+    const saveTimer = window.setInterval(() => {
+      if (!restoredRef.current) {
+        return
+      }
+
+      window.localStorage.setItem(CANVAS_STATE_STORAGE_KEY, JSON.stringify(latestCanvasRef.current))
+    }, 30000)
+
+    return () => window.clearInterval(saveTimer)
+  }, [])
+
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -120,15 +170,81 @@ function App() {
     }
   }, [deleteSelectedElement, deleteSelectedElements, duplicateSelectedElement, nudgeSelectedElement, nudgeSelectedElements, redo, selectedElementId, selectedElementIds, selectAll, undo])
 
-  const handleExport = async () => {
-    const code = exportCanvasToP5(canvas)
+  const handleSave = () => {
+    const blob = new Blob([JSON.stringify(canvas, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = 'canvas-state.json'
+    anchor.click()
+    URL.revokeObjectURL(url)
+    setStatusMessage('Canvas state downloaded as canvas-state.json.')
+  }
+
+  const handleLoadClick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleLoadFile = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+
+    if (!file) {
+      return
+    }
 
     try {
-      await navigator.clipboard.writeText(code)
-      setStatusMessage('p5.js code copied to clipboard.')
+      const text = await file.text()
+      const parsedCanvas = JSON.parse(text) as typeof canvas
+      setCanvasState(parsedCanvas)
+      setStatusMessage('Canvas state loaded from JSON.')
     } catch {
-      setStatusMessage('Clipboard is unavailable. Open devtools and copy from exportCanvasToP5().')
-      console.info(code)
+      setStatusMessage('Could not load the selected JSON file.')
+    } finally {
+      event.target.value = ''
+    }
+  }
+
+  const handleOpenExportModal = () => {
+    setIsExportModalOpen(true)
+  }
+
+  const handleCopyExport = async () => {
+    await navigator.clipboard.writeText(p5Code)
+    setStatusMessage('p5.js code copied to clipboard.')
+  }
+
+  const handleDownloadExport = () => {
+    const blob = new Blob([p5Code], { type: 'text/javascript' })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = 'sketch.js'
+    anchor.click()
+    URL.revokeObjectURL(url)
+    setStatusMessage('sketch.js downloaded.')
+  }
+
+  const handleOpenInEditor = async () => {
+    try {
+      const response = await fetch('https://editor.p5js.org/editor/projects/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: 'Canvas Editor Sketch',
+          code: p5Code,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('p5 editor request failed')
+      }
+
+      setStatusMessage('p5.js Web Editor request sent.')
+    } catch {
+      await navigator.clipboard.writeText(p5Code)
+      setStatusMessage('Could not open p5.js Web Editor due to CORS. Code copied instead.')
     }
   }
 
@@ -139,12 +255,16 @@ function App() {
           canRedo={futureLength > 0}
           canUndo={historyLength > 0}
           elementCount={elements.length}
-          onExport={handleExport}
+          onExport={handleOpenExportModal}
+          onLoad={handleLoadClick}
           onRedo={redo}
+          onSave={handleSave}
           onUndo={undo}
           selectedElementType={selectedElement?.type ?? null}
           statusMessage={statusMessage}
         />
+
+        <input ref={fileInputRef} accept="application/json" className="hidden" type="file" onChange={handleLoadFile} />
 
         <div className="mt-4 grid flex-1 gap-4 lg:grid-cols-[56px_minmax(0,1fr)_280px] xl:grid-cols-[56px_minmax(0,1fr)_280px]">
           <ToolSidebar />
@@ -154,6 +274,15 @@ function App() {
           </div>
           <PropertiesPanel selectedElement={selectedElement} />
         </div>
+
+        <ExportModal
+          code={p5Code}
+          isOpen={isExportModalOpen}
+          onClose={() => setIsExportModalOpen(false)}
+          onCopy={handleCopyExport}
+          onDownload={handleDownloadExport}
+          onOpenInEditor={handleOpenInEditor}
+        />
       </div>
     </div>
   )

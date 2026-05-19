@@ -11,7 +11,6 @@ interface TopBarProps {
   onExport: () => void
   selectedElementType: string | null
   statusMessage: string
-  thumbnailSrc: string | null
 }
 
 export function TopBar({
@@ -115,7 +114,7 @@ export function TopBar({
           >
             Export p5.js
           </button>
-          
+
         </div>
       </div>
 
