@@ -12,12 +12,10 @@ const alignmentTools = [
 ]
 
 function AlignmentButton({
-  id,
   label,
   icon,
   onClick,
 }: {
-  id: string
   label: string
   icon: string
   onClick: () => void
@@ -58,17 +56,17 @@ export function AlignmentToolbar() {
     <div className="flex flex-wrap gap-2 rounded-[8px] border border-[var(--color-outline)] bg-[var(--color-surface)] p-2 shadow-[0_4px_12px_rgba(24,36,66,0.08)]">
       <div className="flex items-center gap-1">
         <span className="px-1 text-[11px] font-medium uppercase text-[var(--color-text-muted)]">Align:</span>
-        <AlignmentButton id="align-left" label="Align Left" icon={alignmentTools[0].icon} onClick={alignSelectedLeft} />
-        <AlignmentButton id="align-center-h" label="Align Center H" icon={alignmentTools[1].icon} onClick={alignSelectedCenterH} />
-        <AlignmentButton id="align-right" label="Align Right" icon={alignmentTools[2].icon} onClick={alignSelectedRight} />
+        <AlignmentButton label="Align Left" icon={alignmentTools[0].icon} onClick={alignSelectedLeft} />
+        <AlignmentButton label="Align Center H" icon={alignmentTools[1].icon} onClick={alignSelectedCenterH} />
+        <AlignmentButton label="Align Right" icon={alignmentTools[2].icon} onClick={alignSelectedRight} />
       </div>
 
       <div className="h-8 border-l border-[var(--color-outline)]" />
 
       <div className="flex items-center gap-1">
-        <AlignmentButton id="align-top" label="Align Top" icon={alignmentTools[3].icon} onClick={alignSelectedTop} />
-        <AlignmentButton id="align-center-v" label="Align Center V" icon={alignmentTools[4].icon} onClick={alignSelectedCenterV} />
-        <AlignmentButton id="align-bottom" label="Align Bottom" icon={alignmentTools[5].icon} onClick={alignSelectedBottom} />
+        <AlignmentButton label="Align Top" icon={alignmentTools[3].icon} onClick={alignSelectedTop} />
+        <AlignmentButton label="Align Center V" icon={alignmentTools[4].icon} onClick={alignSelectedCenterV} />
+        <AlignmentButton label="Align Bottom" icon={alignmentTools[5].icon} onClick={alignSelectedBottom} />
       </div>
 
       {selectedElementIds.length >= 3 && (
@@ -77,8 +75,8 @@ export function AlignmentToolbar() {
 
           <div className="flex items-center gap-1">
             <span className="px-1 text-[11px] font-medium uppercase text-[var(--color-text-muted)]">Distribute:</span>
-            <AlignmentButton id="distribute-h" label="Distribute H" icon={alignmentTools[6].icon} onClick={distributeSelectedH} />
-            <AlignmentButton id="distribute-v" label="Distribute V" icon={alignmentTools[7].icon} onClick={distributeSelectedV} />
+            <AlignmentButton label="Distribute H" icon={alignmentTools[6].icon} onClick={distributeSelectedH} />
+            <AlignmentButton label="Distribute V" icon={alignmentTools[7].icon} onClick={distributeSelectedV} />
           </div>
         </>
       )}
