@@ -1,4 +1,4 @@
-export type ElementType = 'rect' | 'ellipse' | 'line' | 'text' | 'image'
+export type ElementType = 'rect' | 'ellipse' | 'triangle' | 'diamond' | 'line' | 'text' | 'image'
 
 export interface ElementStyle {
   fill: string

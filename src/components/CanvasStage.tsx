@@ -114,6 +114,41 @@ const pointInElement = (point: Point, element: CanvasElement) => {
     return normalizedX * normalizedX + normalizedY * normalizedY <= 1
   }
 
+  if (element.type === 'triangle') {
+    const ax = element.x + element.width / 2
+    const ay = element.y
+    const bx = element.x + element.width
+    const by = element.y + element.height
+    const cx = element.x
+    const cy = element.y + element.height
+
+    const denominator = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy)
+    if (denominator === 0) {
+      return false
+    }
+
+    const alpha = ((by - cy) * (localPoint.x - cx) + (cx - bx) * (localPoint.y - cy)) / denominator
+    const beta = ((cy - ay) * (localPoint.x - cx) + (ax - cx) * (localPoint.y - cy)) / denominator
+    const gamma = 1 - alpha - beta
+
+    return alpha >= 0 && beta >= 0 && gamma >= 0
+  }
+
+  if (element.type === 'diamond') {
+    const centerX = element.x + element.width / 2
+    const centerY = element.y + element.height / 2
+    const dx = Math.abs(localPoint.x - centerX)
+    const dy = Math.abs(localPoint.y - centerY)
+    const radiusX = element.width / 2
+    const radiusY = element.height / 2
+
+    if (radiusX === 0 || radiusY === 0) {
+      return false
+    }
+
+    return dx / radiusX + dy / radiusY <= 1
+  }
+
   return (
     localPoint.x >= element.x &&
     localPoint.x <= element.x + element.width &&
@@ -182,6 +217,29 @@ const drawElement = (ctx: CanvasRenderingContext2D, element: CanvasElement) => {
       ctx.fillStyle = element.style.fill
       ctx.fill()
     }
+  } else if (element.type === 'triangle') {
+    ctx.beginPath()
+    ctx.moveTo(element.x + element.width / 2, element.y)
+    ctx.lineTo(element.x + element.width, element.y + element.height)
+    ctx.lineTo(element.x, element.y + element.height)
+    ctx.closePath()
+
+    if (element.style.fill !== 'none') {
+      ctx.fillStyle = element.style.fill
+      ctx.fill()
+    }
+  } else if (element.type === 'diamond') {
+    ctx.beginPath()
+    ctx.moveTo(element.x + element.width / 2, element.y)
+    ctx.lineTo(element.x + element.width, element.y + element.height / 2)
+    ctx.lineTo(element.x + element.width / 2, element.y + element.height)
+    ctx.lineTo(element.x, element.y + element.height / 2)
+    ctx.closePath()
+
+    if (element.style.fill !== 'none') {
+      ctx.fillStyle = element.style.fill
+      ctx.fill()
+    }
   } else if (element.type === 'text') {
     ctx.fillStyle = element.style.fill === 'none' ? '#0b1c30' : element.style.fill
     ctx.font = `${element.fontSize ?? 24}px ${element.fontFamily ?? 'Inter'}`
@@ -204,6 +262,21 @@ const drawElement = (ctx: CanvasRenderingContext2D, element: CanvasElement) => {
         0,
         Math.PI * 2,
       )
+      ctx.stroke()
+    } else if (element.type === 'triangle') {
+      ctx.beginPath()
+      ctx.moveTo(element.x + element.width / 2, element.y)
+      ctx.lineTo(element.x + element.width, element.y + element.height)
+      ctx.lineTo(element.x, element.y + element.height)
+      ctx.closePath()
+      ctx.stroke()
+    } else if (element.type === 'diamond') {
+      ctx.beginPath()
+      ctx.moveTo(element.x + element.width / 2, element.y)
+      ctx.lineTo(element.x + element.width, element.y + element.height / 2)
+      ctx.lineTo(element.x + element.width / 2, element.y + element.height)
+      ctx.lineTo(element.x, element.y + element.height / 2)
+      ctx.closePath()
       ctx.stroke()
     } else {
       ctx.strokeRect(element.x, element.y, element.width, element.height)
@@ -280,7 +353,7 @@ const drawMultiSelectBox = (ctx: CanvasRenderingContext2D, element: CanvasElemen
 
 interface DrawingState {
   type: 'drawing'
-  tool: 'rect' | 'ellipse' | 'line'
+  tool: 'rect' | 'ellipse' | 'triangle' | 'diamond' | 'line'
   startPoint: Point
   currentPoint: Point
 }
@@ -355,6 +428,33 @@ export function CanvasStage() {
 
         ctx.beginPath()
         ctx.ellipse(centerX, centerY, Math.abs(radiusX), Math.abs(radiusY), 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.stroke()
+      } else if (drawingState.tool === 'triangle') {
+        const x = Math.min(drawingState.startPoint.x, drawingState.currentPoint.x)
+        const y = Math.min(drawingState.startPoint.y, drawingState.currentPoint.y)
+        const width = Math.abs(drawingState.currentPoint.x - drawingState.startPoint.x)
+        const height = Math.abs(drawingState.currentPoint.y - drawingState.startPoint.y)
+
+        ctx.beginPath()
+        ctx.moveTo(x + width / 2, y)
+        ctx.lineTo(x + width, y + height)
+        ctx.lineTo(x, y + height)
+        ctx.closePath()
+        ctx.fill()
+        ctx.stroke()
+      } else if (drawingState.tool === 'diamond') {
+        const x = Math.min(drawingState.startPoint.x, drawingState.currentPoint.x)
+        const y = Math.min(drawingState.startPoint.y, drawingState.currentPoint.y)
+        const width = Math.abs(drawingState.currentPoint.x - drawingState.startPoint.x)
+        const height = Math.abs(drawingState.currentPoint.y - drawingState.startPoint.y)
+
+        ctx.beginPath()
+        ctx.moveTo(x + width / 2, y)
+        ctx.lineTo(x + width, y + height / 2)
+        ctx.lineTo(x + width / 2, y + height)
+        ctx.lineTo(x, y + height / 2)
+        ctx.closePath()
         ctx.fill()
         ctx.stroke()
       } else if (drawingState.tool === 'line') {
@@ -578,7 +678,7 @@ export function CanvasStage() {
     const hitElement = [...elements].reverse().find((element) => pointInElement(point, element))
 
     // Handle drawing tools
-    if (activeTool === 'rect' || activeTool === 'ellipse' || activeTool === 'line') {
+    if (activeTool === 'rect' || activeTool === 'ellipse' || activeTool === 'triangle' || activeTool === 'diamond' || activeTool === 'line') {
       setDrawingState({
         type: 'drawing',
         tool: activeTool,

@@ -48,6 +48,10 @@ const elementToP5 = (element: CanvasElement, index: number) => {
   } else if (element.type === 'ellipse') {
     lines.push(`ellipseMode(CENTER);`)
     lines.push(`ellipse(0, 0, ${element.width}, ${element.height});`)
+  } else if (element.type === 'triangle') {
+    lines.push(`triangle(0, ${-element.height / 2}, ${element.width / 2}, ${element.height / 2}, ${-element.width / 2}, ${element.height / 2});`)
+  } else if (element.type === 'diamond') {
+    lines.push(`quad(0, ${-element.height / 2}, ${element.width / 2}, 0, 0, ${element.height / 2}, ${-element.width / 2}, 0);`)
   } else if (element.type === 'line') {
     const x2 = element.x2 ?? element.x + element.width
     const y2 = element.y2 ?? element.y + element.height
