@@ -1,4 +1,4 @@
-export type ElementType = 'rect' | 'ellipse' | 'triangle' | 'diamond' | 'line' | 'text' | 'image'
+export type ElementType = 'rect' | 'ellipse' | 'triangle' | 'diamond' | 'arc' | 'polygon' | 'line' | 'text' | 'image'
 
 export interface ElementStyle {
   fill: string
@@ -22,6 +22,9 @@ export interface CanvasElement {
   src?: string
   x2?: number
   y2?: number
+  arcStart?: number
+  arcStop?: number
+  polygonSides?: number
 }
 
 export interface CanvasState {
