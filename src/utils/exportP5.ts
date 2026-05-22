@@ -52,6 +52,18 @@ const elementToP5 = (element: CanvasElement, index: number) => {
     lines.push(`triangle(0, ${-element.height / 2}, ${element.width / 2}, ${element.height / 2}, ${-element.width / 2}, ${element.height / 2});`)
   } else if (element.type === 'diamond') {
     lines.push(`quad(0, ${-element.height / 2}, ${element.width / 2}, 0, 0, ${element.height / 2}, ${-element.width / 2}, 0);`)
+  } else if (element.type === 'arc') {
+    lines.push(`arc(0, 0, ${element.width}, ${element.height}, ${element.arcStart ?? 0}, ${element.arcStop ?? 180}, PIE);`)
+  } else if (element.type === 'polygon') {
+    const sides = Math.max(3, Math.round(element.polygonSides ?? 6))
+    lines.push(`beginShape();`)
+    for (let i = 0; i < sides; i += 1) {
+      const angle = ((-90 + (360 / sides) * i) * Math.PI) / 180
+      const x = (Math.cos(angle) * element.width) / 2
+      const y = (Math.sin(angle) * element.height) / 2
+      lines.push(`vertex(${x.toFixed(3)}, ${y.toFixed(3)});`)
+    }
+    lines.push(`endShape(CLOSE);`)
   } else if (element.type === 'line') {
     const x2 = element.x2 ?? element.x + element.width
     const y2 = element.y2 ?? element.y + element.height

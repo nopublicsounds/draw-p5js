@@ -7,6 +7,8 @@ const tools: { tool: EditorTool; label: string; hint: string }[] = [
   { tool: 'ellipse', label: 'Ellipse', hint: 'Click-drag to draw' },
   { tool: 'triangle', label: 'Triangle', hint: 'Click-drag to draw' },
   { tool: 'diamond', label: 'Diamond', hint: 'Click-drag to draw' },
+  { tool: 'arc', label: 'Arc', hint: 'Click-drag to draw' },
+  { tool: 'polygon', label: 'Polygon', hint: 'Click-drag to draw' },
   { tool: 'line', label: 'Line', hint: 'Click-drag to draw' },
   { tool: 'text', label: 'Text', hint: 'Click to place' },
   { tool: 'image', label: 'Image', hint: 'Click for picker' },
@@ -18,13 +20,15 @@ const toolIcons: Record<EditorTool, string> = {
   ellipse: 'M3 10c0-3.314 3.582-6 8-6s8 2.686 8 6-3.582 6-8 6-8-2.686-8-6z',
   triangle: 'M10 4 17 16 3 16z',
   diamond: 'M10 3 17 10 10 17 3 10z',
+  arc: 'M4 11a6 6 0 1 1 12 0',
+  polygon: 'M10 3 16 7 14 15 6 15 4 7z',
   line: 'M4 15 16 5',
   text: 'M5 5h10M10 5v10',
   image: 'M4 5h12v10H4zm2 7 2.5-3 2.5 2 2-2 3 3',
 }
 
 function ToolGlyph({ tool }: { tool: EditorTool }) {
-  if (tool === 'line' || tool === 'text' || tool === 'image' || tool === 'triangle' || tool === 'diamond') {
+  if (tool === 'line' || tool === 'text' || tool === 'image' || tool === 'triangle' || tool === 'diamond' || tool === 'arc' || tool === 'polygon') {
     return (
       <svg viewBox="0 0 20 20" className="h-5 w-5 fill-none stroke-current stroke-[1.6]" aria-hidden="true">
         <path d={toolIcons[tool]} strokeLinecap="round" strokeLinejoin="round" />

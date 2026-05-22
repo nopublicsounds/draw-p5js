@@ -149,6 +149,35 @@ const pointInElement = (point: Point, element: CanvasElement) => {
     return dx / radiusX + dy / radiusY <= 1
   }
 
+  if (element.type === 'arc') {
+    const centerX = element.x + element.width / 2
+    const centerY = element.y + element.height / 2
+    const radiusX = element.width / 2
+    const radiusY = element.height / 2
+
+    if (radiusX === 0 || radiusY === 0) {
+      return false
+    }
+
+    const normalizedX = (localPoint.x - centerX) / radiusX
+    const normalizedY = (localPoint.y - centerY) / radiusY
+    const insideEllipse = normalizedX * normalizedX + normalizedY * normalizedY <= 1
+
+    if (!insideEllipse) {
+      return false
+    }
+
+    const pointAngle = normalizeAngle((Math.atan2(localPoint.y - centerY, localPoint.x - centerX) * 180) / Math.PI)
+    const start = normalizeAngle(element.arcStart ?? 0)
+    const stop = normalizeAngle(element.arcStop ?? 180)
+
+    if (start <= stop) {
+      return pointAngle >= start && pointAngle <= stop
+    }
+
+    return pointAngle >= start || pointAngle <= stop
+  }
+
   return (
     localPoint.x >= element.x &&
     localPoint.x <= element.x + element.width &&
@@ -240,6 +269,45 @@ const drawElement = (ctx: CanvasRenderingContext2D, element: CanvasElement) => {
       ctx.fillStyle = element.style.fill
       ctx.fill()
     }
+  } else if (element.type === 'arc') {
+    const start = toRadians(element.arcStart ?? 0)
+    const stop = toRadians(element.arcStop ?? 180)
+    const centerX = element.x + element.width / 2
+    const centerY = element.y + element.height / 2
+
+    ctx.beginPath()
+    ctx.moveTo(centerX, centerY)
+    ctx.ellipse(centerX, centerY, element.width / 2, element.height / 2, 0, start, stop)
+    ctx.closePath()
+
+    if (element.style.fill !== 'none') {
+      ctx.fillStyle = element.style.fill
+      ctx.fill()
+    }
+  } else if (element.type === 'polygon') {
+    const sides = Math.max(3, Math.round(element.polygonSides ?? 6))
+    const centerX = element.x + element.width / 2
+    const centerY = element.y + element.height / 2
+    const radiusX = element.width / 2
+    const radiusY = element.height / 2
+
+    ctx.beginPath()
+    for (let i = 0; i < sides; i += 1) {
+      const angle = toRadians(-90 + (360 / sides) * i)
+      const x = centerX + Math.cos(angle) * radiusX
+      const y = centerY + Math.sin(angle) * radiusY
+      if (i === 0) {
+        ctx.moveTo(x, y)
+      } else {
+        ctx.lineTo(x, y)
+      }
+    }
+    ctx.closePath()
+
+    if (element.style.fill !== 'none') {
+      ctx.fillStyle = element.style.fill
+      ctx.fill()
+    }
   } else if (element.type === 'text') {
     ctx.fillStyle = element.style.fill === 'none' ? '#0b1c30' : element.style.fill
     ctx.font = `${element.fontSize ?? 24}px ${element.fontFamily ?? 'Inter'}`
@@ -276,6 +344,37 @@ const drawElement = (ctx: CanvasRenderingContext2D, element: CanvasElement) => {
       ctx.lineTo(element.x + element.width, element.y + element.height / 2)
       ctx.lineTo(element.x + element.width / 2, element.y + element.height)
       ctx.lineTo(element.x, element.y + element.height / 2)
+      ctx.closePath()
+      ctx.stroke()
+    } else if (element.type === 'arc') {
+      const start = toRadians(element.arcStart ?? 0)
+      const stop = toRadians(element.arcStop ?? 180)
+      const centerX = element.x + element.width / 2
+      const centerY = element.y + element.height / 2
+
+      ctx.beginPath()
+      ctx.moveTo(centerX, centerY)
+      ctx.ellipse(centerX, centerY, element.width / 2, element.height / 2, 0, start, stop)
+      ctx.closePath()
+      ctx.stroke()
+    } else if (element.type === 'polygon') {
+      const sides = Math.max(3, Math.round(element.polygonSides ?? 6))
+      const centerX = element.x + element.width / 2
+      const centerY = element.y + element.height / 2
+      const radiusX = element.width / 2
+      const radiusY = element.height / 2
+
+      ctx.beginPath()
+      for (let i = 0; i < sides; i += 1) {
+        const angle = toRadians(-90 + (360 / sides) * i)
+        const x = centerX + Math.cos(angle) * radiusX
+        const y = centerY + Math.sin(angle) * radiusY
+        if (i === 0) {
+          ctx.moveTo(x, y)
+        } else {
+          ctx.lineTo(x, y)
+        }
+      }
       ctx.closePath()
       ctx.stroke()
     } else {
@@ -353,10 +452,12 @@ const drawMultiSelectBox = (ctx: CanvasRenderingContext2D, element: CanvasElemen
 
 interface DrawingState {
   type: 'drawing'
-  tool: 'rect' | 'ellipse' | 'triangle' | 'diamond' | 'line'
+  tool: 'rect' | 'ellipse' | 'triangle' | 'diamond' | 'arc' | 'polygon' | 'line'
   startPoint: Point
   currentPoint: Point
 }
+
+const normalizeAngle = (angle: number) => ((angle % 360) + 360) % 360
 
 export function CanvasStage() {
   const canvasState = useCanvasStore((state) => state.canvas)
@@ -454,6 +555,45 @@ export function CanvasStage() {
         ctx.lineTo(x + width, y + height / 2)
         ctx.lineTo(x + width / 2, y + height)
         ctx.lineTo(x, y + height / 2)
+        ctx.closePath()
+        ctx.fill()
+        ctx.stroke()
+      } else if (drawingState.tool === 'arc') {
+        const x = Math.min(drawingState.startPoint.x, drawingState.currentPoint.x)
+        const y = Math.min(drawingState.startPoint.y, drawingState.currentPoint.y)
+        const width = Math.abs(drawingState.currentPoint.x - drawingState.startPoint.x)
+        const height = Math.abs(drawingState.currentPoint.y - drawingState.startPoint.y)
+        const centerX = x + width / 2
+        const centerY = y + height / 2
+
+        ctx.beginPath()
+        ctx.moveTo(centerX, centerY)
+        ctx.ellipse(centerX, centerY, width / 2, height / 2, 0, toRadians(0), toRadians(180))
+        ctx.closePath()
+        ctx.fill()
+        ctx.stroke()
+      } else if (drawingState.tool === 'polygon') {
+        const x = Math.min(drawingState.startPoint.x, drawingState.currentPoint.x)
+        const y = Math.min(drawingState.startPoint.y, drawingState.currentPoint.y)
+        const width = Math.abs(drawingState.currentPoint.x - drawingState.startPoint.x)
+        const height = Math.abs(drawingState.currentPoint.y - drawingState.startPoint.y)
+        const centerX = x + width / 2
+        const centerY = y + height / 2
+        const radiusX = width / 2
+        const radiusY = height / 2
+        const sides = 6
+
+        ctx.beginPath()
+        for (let i = 0; i < sides; i += 1) {
+          const angle = toRadians(-90 + (360 / sides) * i)
+          const px = centerX + Math.cos(angle) * radiusX
+          const py = centerY + Math.sin(angle) * radiusY
+          if (i === 0) {
+            ctx.moveTo(px, py)
+          } else {
+            ctx.lineTo(px, py)
+          }
+        }
         ctx.closePath()
         ctx.fill()
         ctx.stroke()
@@ -604,6 +744,15 @@ export function CanvasStage() {
           width: 0,
           height: 0,
         })
+      } else if (drawingState.tool === 'arc') {
+        Object.assign(baseElement, {
+          arcStart: 0,
+          arcStop: 180,
+        })
+      } else if (drawingState.tool === 'polygon') {
+        Object.assign(baseElement, {
+          polygonSides: 6,
+        })
       }
 
       addElement(baseElement)
@@ -678,7 +827,15 @@ export function CanvasStage() {
     const hitElement = [...elements].reverse().find((element) => pointInElement(point, element))
 
     // Handle drawing tools
-    if (activeTool === 'rect' || activeTool === 'ellipse' || activeTool === 'triangle' || activeTool === 'diamond' || activeTool === 'line') {
+    if (
+      activeTool === 'rect' ||
+      activeTool === 'ellipse' ||
+      activeTool === 'triangle' ||
+      activeTool === 'diamond' ||
+      activeTool === 'arc' ||
+      activeTool === 'polygon' ||
+      activeTool === 'line'
+    ) {
       setDrawingState({
         type: 'drawing',
         tool: activeTool,

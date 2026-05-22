@@ -211,6 +211,31 @@ export function PropertiesPanel({ selectedElement }: PropertiesPanelProps) {
               </Section>
             )}
 
+            {selectedElement.type === 'arc' && (
+              <Section title="Arc">
+                <NumberField
+                  label="Start"
+                  value={Math.round(selectedElement.arcStart ?? 0)}
+                  onChange={(value) => updateElement(selectedElement.id, { arcStart: value })}
+                />
+                <NumberField
+                  label="Stop"
+                  value={Math.round(selectedElement.arcStop ?? 180)}
+                  onChange={(value) => updateElement(selectedElement.id, { arcStop: value })}
+                />
+              </Section>
+            )}
+
+            {selectedElement.type === 'polygon' && (
+              <Section title="Polygon">
+                <NumberField
+                  label="Sides"
+                  value={Math.max(3, Math.round(selectedElement.polygonSides ?? 6))}
+                  onChange={(value) => updateElement(selectedElement.id, { polygonSides: Math.max(3, Math.min(24, Math.round(value))) })}
+                />
+              </Section>
+            )}
+
             {selectedElement.type !== 'line' && selectedElement.type !== 'image' && (
               <Section title="Arrange">
                 <div className="grid grid-cols-2 gap-2">
