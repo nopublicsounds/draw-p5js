@@ -7,15 +7,25 @@ interface Point {
   y: number
 }
 
+type ResizeHandle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w'
+type SelectionHandle = ResizeHandle | 'rotate'
+
 interface DragState {
+  mode: 'move' | 'resize' | 'rotate'
   id: string
   startPoint: Point
   initialElement: CanvasElement
   beforeCanvas: CanvasState
   moved: boolean
+  handle?: SelectionHandle
+  initialCenter?: Point
+  initialRotation?: number
+  startAngle?: number
 }
 
 const HANDLE_SIZE = 8
+const MIN_ELEMENT_SIZE = 12
+const ROTATION_HANDLE_OFFSET = 24
 
 const toRadians = (degrees: number) => (degrees * Math.PI) / 180
 
@@ -75,6 +85,133 @@ const getElementBounds = (element: CanvasElement) => {
     y: Math.min(...ys),
     width: Math.max(...xs) - Math.min(...xs),
     height: Math.max(...ys) - Math.min(...ys),
+  }
+}
+
+const getSelectionHandlePoints = (element: CanvasElement): { name: SelectionHandle; point: Point }[] => {
+  if (element.type === 'line') {
+    return []
+  }
+
+  const center = getElementCenter(element)
+  const localPoints: Array<{ name: ResizeHandle; point: Point }> = [
+    { name: 'nw', point: { x: element.x, y: element.y } },
+    { name: 'n', point: { x: element.x + element.width / 2, y: element.y } },
+    { name: 'ne', point: { x: element.x + element.width, y: element.y } },
+    { name: 'e', point: { x: element.x + element.width, y: element.y + element.height / 2 } },
+    { name: 'se', point: { x: element.x + element.width, y: element.y + element.height } },
+    { name: 's', point: { x: element.x + element.width / 2, y: element.y + element.height } },
+    { name: 'sw', point: { x: element.x, y: element.y + element.height } },
+    { name: 'w', point: { x: element.x, y: element.y + element.height / 2 } },
+  ]
+
+  const rotated = localPoints.map((entry) => ({
+    name: entry.name,
+    point: rotatePoint(entry.point, center, element.rotation),
+  }))
+
+  const topMiddle = rotated.find((entry) => entry.name === 'n')?.point
+  if (!topMiddle) {
+    return rotated
+  }
+
+  const dx = topMiddle.x - center.x
+  const dy = topMiddle.y - center.y
+  const length = Math.hypot(dx, dy) || 1
+  const rotationHandle: Point = {
+    x: topMiddle.x + (dx / length) * ROTATION_HANDLE_OFFSET,
+    y: topMiddle.y + (dy / length) * ROTATION_HANDLE_OFFSET,
+  }
+
+  return [...rotated, { name: 'rotate', point: rotationHandle }]
+}
+
+const getHitSelectionHandle = (point: Point, element: CanvasElement): SelectionHandle | null => {
+  const handles = getSelectionHandlePoints(element)
+
+  for (const handle of handles) {
+    if (
+      point.x >= handle.point.x - HANDLE_SIZE / 2 &&
+      point.x <= handle.point.x + HANDLE_SIZE / 2 &&
+      point.y >= handle.point.y - HANDLE_SIZE / 2 &&
+      point.y <= handle.point.y + HANDLE_SIZE / 2
+    ) {
+      return handle.name
+    }
+  }
+
+  return null
+}
+
+const toLocalVector = (point: Point, center: Point, rotation: number): Point => {
+  const unrotated = rotatePoint(point, center, -rotation)
+  return {
+    x: unrotated.x - center.x,
+    y: unrotated.y - center.y,
+  }
+}
+
+const fromLocalVector = (vector: Point, center: Point, rotation: number): Point => {
+  const point = { x: center.x + vector.x, y: center.y + vector.y }
+  return rotatePoint(point, center, rotation)
+}
+
+const getHandleDirection = (handle: ResizeHandle) => {
+  return {
+    x: handle.includes('w') ? -1 : handle.includes('e') ? 1 : 0,
+    y: handle.includes('n') ? -1 : handle.includes('s') ? 1 : 0,
+  }
+}
+
+const applyResize = (dragState: DragState, point: Point): Pick<CanvasElement, 'x' | 'y' | 'width' | 'height'> | null => {
+  if (dragState.mode !== 'resize' || !dragState.handle || dragState.handle === 'rotate' || !dragState.initialCenter) {
+    return null
+  }
+
+  const handle = dragState.handle
+  const direction = getHandleDirection(handle)
+  const initialHalfWidth = dragState.initialElement.width / 2
+  const initialHalfHeight = dragState.initialElement.height / 2
+  const localPointer = toLocalVector(point, dragState.initialCenter, dragState.initialElement.rotation)
+
+  const anchorX = direction.x !== 0 ? -direction.x * initialHalfWidth : 0
+  const anchorY = direction.y !== 0 ? -direction.y * initialHalfHeight : 0
+
+  let draggedX = direction.x !== 0 ? localPointer.x : initialHalfWidth
+  let draggedY = direction.y !== 0 ? localPointer.y : initialHalfHeight
+
+  if (direction.x !== 0) {
+    const raw = draggedX - anchorX
+    if (Math.abs(raw) < MIN_ELEMENT_SIZE) {
+      draggedX = anchorX + (raw === 0 ? direction.x : Math.sign(raw)) * MIN_ELEMENT_SIZE
+    }
+  }
+
+  if (direction.y !== 0) {
+    const raw = draggedY - anchorY
+    if (Math.abs(raw) < MIN_ELEMENT_SIZE) {
+      draggedY = anchorY + (raw === 0 ? direction.y : Math.sign(raw)) * MIN_ELEMENT_SIZE
+    }
+  }
+
+  const minX = direction.x !== 0 ? Math.min(anchorX, draggedX) : -initialHalfWidth
+  const maxX = direction.x !== 0 ? Math.max(anchorX, draggedX) : initialHalfWidth
+  const minY = direction.y !== 0 ? Math.min(anchorY, draggedY) : -initialHalfHeight
+  const maxY = direction.y !== 0 ? Math.max(anchorY, draggedY) : initialHalfHeight
+
+  const width = Math.max(MIN_ELEMENT_SIZE, maxX - minX)
+  const height = Math.max(MIN_ELEMENT_SIZE, maxY - minY)
+  const localCenter = {
+    x: (minX + maxX) / 2,
+    y: (minY + maxY) / 2,
+  }
+  const worldCenter = fromLocalVector(localCenter, dragState.initialCenter, dragState.initialElement.rotation)
+
+  return {
+    x: worldCenter.x - width / 2,
+    y: worldCenter.y - height / 2,
+    width,
+    height,
   }
 }
 
@@ -405,34 +542,60 @@ const drawSelection = (ctx: CanvasRenderingContext2D, elements: CanvasElement[],
 }
 
 const drawSingleSelection = (ctx: CanvasRenderingContext2D, element: CanvasElement) => {
-  const bounds = getElementBounds(element)
-  const handlePoints: Point[] = [
-    { x: bounds.x, y: bounds.y },
-    { x: bounds.x + bounds.width / 2, y: bounds.y },
-    { x: bounds.x + bounds.width, y: bounds.y },
-    { x: bounds.x + bounds.width, y: bounds.y + bounds.height / 2 },
-    { x: bounds.x + bounds.width, y: bounds.y + bounds.height },
-    { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height },
-    { x: bounds.x, y: bounds.y + bounds.height },
-    { x: bounds.x, y: bounds.y + bounds.height / 2 },
+  if (element.type === 'line') {
+    const bounds = getElementBounds(element)
+
+    ctx.save()
+    ctx.strokeStyle = '#182442'
+    ctx.lineWidth = 1
+    ctx.setLineDash([6, 4])
+    ctx.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height)
+    ctx.setLineDash([])
+    ctx.restore()
+    return
+  }
+
+  const center = getElementCenter(element)
+  const corners = [
+    rotatePoint({ x: element.x, y: element.y }, center, element.rotation),
+    rotatePoint({ x: element.x + element.width, y: element.y }, center, element.rotation),
+    rotatePoint({ x: element.x + element.width, y: element.y + element.height }, center, element.rotation),
+    rotatePoint({ x: element.x, y: element.y + element.height }, center, element.rotation),
   ]
-  const rotationHandle = { x: bounds.x + bounds.width / 2, y: bounds.y - 20 }
+  const handles = getSelectionHandlePoints(element)
+  const rotationHandle = handles.find((handle) => handle.name === 'rotate')?.point
 
   ctx.save()
   ctx.strokeStyle = '#182442'
   ctx.fillStyle = '#e31757'
   ctx.lineWidth = 1
   ctx.setLineDash([6, 4])
-  ctx.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height)
-  ctx.setLineDash([])
   ctx.beginPath()
-  ctx.moveTo(bounds.x + bounds.width / 2, bounds.y)
-  ctx.lineTo(rotationHandle.x, rotationHandle.y)
+  corners.forEach((point, index) => {
+    if (index === 0) {
+      ctx.moveTo(point.x, point.y)
+    } else {
+      ctx.lineTo(point.x, point.y)
+    }
+  })
+  ctx.closePath()
   ctx.stroke()
+  ctx.setLineDash([])
 
-  for (const handlePoint of [...handlePoints, rotationHandle]) {
-    ctx.fillRect(handlePoint.x - HANDLE_SIZE / 2, handlePoint.y - HANDLE_SIZE / 2, HANDLE_SIZE, HANDLE_SIZE)
-    ctx.strokeRect(handlePoint.x - HANDLE_SIZE / 2, handlePoint.y - HANDLE_SIZE / 2, HANDLE_SIZE, HANDLE_SIZE)
+  if (rotationHandle) {
+    const topMiddle = handles.find((handle) => handle.name === 'n')?.point
+    if (topMiddle) {
+      ctx.beginPath()
+      ctx.moveTo(topMiddle.x, topMiddle.y)
+      ctx.lineTo(rotationHandle.x, rotationHandle.y)
+      ctx.stroke()
+    }
+  }
+
+  for (const handle of handles) {
+    const { point } = handle
+    ctx.fillRect(point.x - HANDLE_SIZE / 2, point.y - HANDLE_SIZE / 2, HANDLE_SIZE, HANDLE_SIZE)
+    ctx.strokeRect(point.x - HANDLE_SIZE / 2, point.y - HANDLE_SIZE / 2, HANDLE_SIZE, HANDLE_SIZE)
   }
 
   ctx.restore()
@@ -639,32 +802,49 @@ export function CanvasStage() {
       const dx = point.x - dragState.startPoint.x
       const dy = point.y - dragState.startPoint.y
 
-      // If multiple elements are selected, move them all
-      if (selectedElementIds.length > 1 && selectedElementIds.includes(dragState.id)) {
-        const selectedSet = new Set(selectedElementIds)
-        for (const element of dragState.beforeCanvas.elements) {
-          if (selectedSet.has(element.id)) {
-            updateElement(
-              element.id,
-              {
-                x: element.x + dx,
-                y: element.y + dy,
-                x2: element.x2 !== undefined ? element.x2 + dx : undefined,
-                y2: element.y2 !== undefined ? element.y2 + dy : undefined,
-              },
-              false,
-            )
+      if (dragState.mode === 'move') {
+        // If multiple elements are selected, move them all
+        if (selectedElementIds.length > 1 && selectedElementIds.includes(dragState.id)) {
+          const selectedSet = new Set(selectedElementIds)
+          for (const element of dragState.beforeCanvas.elements) {
+            if (selectedSet.has(element.id)) {
+              updateElement(
+                element.id,
+                {
+                  x: element.x + dx,
+                  y: element.y + dy,
+                  x2: element.x2 !== undefined ? element.x2 + dx : undefined,
+                  y2: element.y2 !== undefined ? element.y2 + dy : undefined,
+                },
+                false,
+              )
+            }
           }
+        } else {
+          // Single element drag
+          updateElement(
+            dragState.id,
+            {
+              x: dragState.initialElement.x + dx,
+              y: dragState.initialElement.y + dy,
+              x2: dragState.initialElement.x2 !== undefined ? dragState.initialElement.x2 + dx : undefined,
+              y2: dragState.initialElement.y2 !== undefined ? dragState.initialElement.y2 + dy : undefined,
+            },
+            false,
+          )
         }
-      } else {
-        // Single element drag
+      } else if (dragState.mode === 'resize') {
+        const resized = applyResize(dragState, point)
+        if (resized) {
+          updateElement(dragState.id, resized, false)
+        }
+      } else if (dragState.mode === 'rotate' && dragState.initialCenter && dragState.initialRotation !== undefined && dragState.startAngle !== undefined) {
+        const angle = Math.atan2(point.y - dragState.initialCenter.y, point.x - dragState.initialCenter.x)
+        const delta = ((angle - dragState.startAngle) * 180) / Math.PI
         updateElement(
           dragState.id,
           {
-            x: dragState.initialElement.x + dx,
-            y: dragState.initialElement.y + dy,
-            x2: dragState.initialElement.x2 !== undefined ? dragState.initialElement.x2 + dx : undefined,
-            y2: dragState.initialElement.y2 !== undefined ? dragState.initialElement.y2 + dy : undefined,
+            rotation: normalizeAngle(dragState.initialRotation + delta),
           },
           false,
         )
@@ -824,6 +1004,30 @@ export function CanvasStage() {
     }
 
     const point = getCanvasPoint(event.nativeEvent, canvas)
+
+    if (activeTool === 'select' && selectedElementIds.length === 1) {
+      const selectedElement = elements.find((element) => element.id === selectedElementIds[0])
+      if (selectedElement) {
+        const hitHandle = getHitSelectionHandle(point, selectedElement)
+        if (hitHandle) {
+          const center = getElementCenter(selectedElement)
+          setDragState({
+            mode: hitHandle === 'rotate' ? 'rotate' : 'resize',
+            id: selectedElement.id,
+            startPoint: point,
+            initialElement: structuredClone(selectedElement),
+            beforeCanvas: cloneCanvasState(useCanvasStore.getState().canvas),
+            moved: false,
+            handle: hitHandle,
+            initialCenter: center,
+            initialRotation: selectedElement.rotation,
+            startAngle: Math.atan2(point.y - center.y, point.x - center.x),
+          })
+          return
+        }
+      }
+    }
+
     const hitElement = [...elements].reverse().find((element) => pointInElement(point, element))
 
     // Handle drawing tools
@@ -936,6 +1140,7 @@ export function CanvasStage() {
 
     // Start dragging
     setDragState({
+      mode: 'move',
       id: hitElement.id,
       startPoint: point,
       initialElement: structuredClone(hitElement),
