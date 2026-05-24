@@ -60,9 +60,8 @@ function App() {
     try {
       const parsedCanvas = JSON.parse(savedCanvasState) as typeof canvas
       setCanvasState(parsedCanvas)
-      setStatusMessage('Canvas restored from localStorage.')
-    } catch {
-      setStatusMessage('Saved canvas data could not be restored.')
+    } catch (error) {
+      console.warn('Saved canvas data could not be restored.', error)
     }
   }, [canvas, setCanvasState])
 
