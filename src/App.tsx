@@ -6,6 +6,7 @@ import { PropertiesPanel } from './components/PropertiesPanel'
 import { ToolSidebar } from './components/ToolSidebar'
 import { TopBar } from './components/TopBar'
 import { useCanvasStore } from './store/canvasStore'
+import { parseCanvasState } from './utils/canvasValidation'
 import { exportCanvasToP5 } from './utils/exportP5'
 
 const CANVAS_STATE_STORAGE_KEY = 'draw-p5js.canvas-state'
@@ -58,8 +59,15 @@ function App() {
     }
 
     try {
-      const parsedCanvas = JSON.parse(savedCanvasState) as typeof canvas
-      setCanvasState(parsedCanvas)
+      const raw = JSON.parse(savedCanvasState) as unknown
+      const parsedCanvas = parseCanvasState(raw)
+
+      if (!parsedCanvas.ok) {
+        console.warn('Saved canvas data has an invalid schema.')
+        return
+      }
+
+      setCanvasState(parsedCanvas.value)
     } catch (error) {
       console.warn('Saved canvas data could not be restored.', error)
     }
@@ -193,8 +201,15 @@ function App() {
 
     try {
       const text = await file.text()
-      const parsedCanvas = JSON.parse(text) as typeof canvas
-      setCanvasState(parsedCanvas)
+      const raw = JSON.parse(text) as unknown
+      const parsedCanvas = parseCanvasState(raw)
+
+      if (!parsedCanvas.ok) {
+        setStatusMessage(`Could not load JSON: ${parsedCanvas.error}`)
+        return
+      }
+
+      setCanvasState(parsedCanvas.value)
       setStatusMessage('Canvas state loaded from JSON.')
     } catch {
       setStatusMessage('Could not load the selected JSON file.')
