@@ -1156,9 +1156,6 @@ export function CanvasStage() {
           <p className="font-tech text-[11px] uppercase tracking-[0.08em] text-[var(--color-text-muted)]">Viewport</p>
           <h2 className="mt-0.5 text-[16px] font-semibold text-[var(--color-primary)]">Canvas</h2>
         </div>
-        <p className="max-w-[480px] text-right text-[12px] text-[var(--color-text-muted)]">
-          Stage keeps the canvas centered, with technical rulers and low-contrast chrome. Selection frames use indigo; handles use p5 pink.
-        </p>
       </div>
 
       <div className="overflow-auto bg-[var(--color-surface-low)] p-6">

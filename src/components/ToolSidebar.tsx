@@ -77,10 +77,7 @@ export function ToolSidebar() {
           )
         })}
       </div>
-
-      <div className="mt-3 hidden border-t border-[var(--color-outline)] pt-2 lg:block">
-        <p className="font-tech text-[11px] leading-4 text-[var(--color-text-muted)]">56px toolbar. Active tool uses indigo chrome and p5 pink marker.</p>
-      </div>
+      
     </aside>
   )
 }
