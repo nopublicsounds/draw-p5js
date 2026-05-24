@@ -1,6 +1,6 @@
 import type { PropsWithChildren } from 'react'
 import type { CanvasElement } from '../types/canvas'
-import { useCanvasStore } from '../store/canvasStore'
+import { cloneCanvasState, useCanvasStore } from '../store/canvasStore'
 
 interface PropertiesPanelProps {
   selectedElement: CanvasElement | null
@@ -40,6 +40,28 @@ function Section({ title, children }: PropsWithChildren<{ title: string }>) {
   )
 }
 
+const normalizeAngle = (angle: number) => ((angle % 360) + 360) % 360
+
+const getElementBounds = (element: CanvasElement) => {
+  if (element.type === 'line') {
+    const x2 = element.x2 ?? element.x
+    const y2 = element.y2 ?? element.y
+    return {
+      x: Math.min(element.x, x2),
+      y: Math.min(element.y, y2),
+      width: Math.abs(x2 - element.x),
+      height: Math.abs(y2 - element.y),
+    }
+  }
+
+  return {
+    x: element.x,
+    y: element.y,
+    width: element.width,
+    height: element.height,
+  }
+}
+
 export function PropertiesPanel({ selectedElement }: PropertiesPanelProps) {
   const canvas = useCanvasStore((state) => state.canvas)
   const selectedElementIds = useCanvasStore((state) => state.selectedElementIds)
@@ -49,8 +71,99 @@ export function PropertiesPanel({ selectedElement }: PropertiesPanelProps) {
   const moveBackward = useCanvasStore((state) => state.moveBackward)
   const moveToFront = useCanvasStore((state) => state.moveToFront)
   const moveToBack = useCanvasStore((state) => state.moveToBack)
+  const pushHistorySnapshot = useCanvasStore((state) => state.pushHistorySnapshot)
 
   const fontFamilies = ['Inter', 'Georgia', 'Arial', 'Times New Roman', 'Courier New', 'Verdana']
+  const selectedElements = canvas.elements.filter((element) => selectedElementIds.includes(element.id))
+  const isMultiSelected = selectedElementIds.length > 1
+  const hasFillTargets = selectedElements.some((element) => element.type !== 'line' && element.type !== 'image')
+  const hasStrokeTargets = selectedElements.some((element) => element.type !== 'image')
+  const fillReference = selectedElements.find((element) => element.type !== 'line' && element.type !== 'image')
+  const strokeReference = selectedElements.find((element) => element.type !== 'image')
+  const avgOpacity =
+    selectedElements.length > 0
+      ? selectedElements.reduce((sum, element) => sum + element.style.opacity, 0) / selectedElements.length
+      : 1
+  const avgStrokeWeight =
+    selectedElements.length > 0
+      ? selectedElements.reduce((sum, element) => sum + element.style.strokeWeight, 0) / selectedElements.length
+      : 1
+  const selectionBounds =
+    selectedElements.length > 0
+      ? selectedElements
+          .map(getElementBounds)
+          .reduce(
+            (acc, bounds) => ({
+              minX: Math.min(acc.minX, bounds.x),
+              minY: Math.min(acc.minY, bounds.y),
+              maxX: Math.max(acc.maxX, bounds.x + bounds.width),
+              maxY: Math.max(acc.maxY, bounds.y + bounds.height),
+            }),
+            {
+              minX: Number.POSITIVE_INFINITY,
+              minY: Number.POSITIVE_INFINITY,
+              maxX: Number.NEGATIVE_INFINITY,
+              maxY: Number.NEGATIVE_INFINITY,
+            },
+          )
+      : null
+  const rotationTargets = selectedElements.filter((element) => element.type !== 'line')
+  const avgRotation =
+    rotationTargets.length > 0
+      ? rotationTargets.reduce((sum, element) => sum + element.rotation, 0) / rotationTargets.length
+      : 0
+
+  const applyElementToSelection = (
+    updatesFactory: (element: CanvasElement) => Partial<CanvasElement>,
+    predicate: (element: CanvasElement) => boolean = () => true,
+  ) => {
+    if (selectedElements.length === 0) {
+      return
+    }
+
+    const beforeCanvas = cloneCanvasState(useCanvasStore.getState().canvas)
+    let changed = false
+
+    for (const element of selectedElements) {
+      if (!predicate(element)) {
+        continue
+      }
+
+      const updates = updatesFactory(element)
+      updateElement(element.id, updates, false)
+      changed = true
+    }
+
+    if (changed) {
+      pushHistorySnapshot(beforeCanvas)
+    }
+  }
+
+  const applyStyleToSelection = (
+    styleFactory: (element: CanvasElement) => Partial<CanvasElement['style']>,
+    predicate: (element: CanvasElement) => boolean = () => true,
+  ) => {
+    if (selectedElements.length === 0) {
+      return
+    }
+
+    const beforeCanvas = cloneCanvasState(useCanvasStore.getState().canvas)
+    let changed = false
+
+    for (const element of selectedElements) {
+      if (!predicate(element)) {
+        continue
+      }
+
+      const styleUpdates = styleFactory(element)
+      updateElement(element.id, { style: styleUpdates }, false)
+      changed = true
+    }
+
+    if (changed) {
+      pushHistorySnapshot(beforeCanvas)
+    }
+  }
 
   return (
     <aside className="rounded-[8px] border border-[var(--color-outline)] bg-[var(--color-surface)] p-3 shadow-[0_4px_12px_rgba(24,36,66,0.08)]">
@@ -75,7 +188,168 @@ export function PropertiesPanel({ selectedElement }: PropertiesPanelProps) {
           </label>
         </Section>
 
-        {selectedElement ? (
+        {isMultiSelected ? (
+          <>
+            <div className="flex items-center justify-between rounded-[4px] border border-[var(--color-outline)] bg-[var(--color-surface-low)] px-2 py-2">
+              <div className="flex items-center gap-2">
+                <span className="h-7 w-1 rounded-full bg-[var(--color-accent-strong)]" />
+                <div>
+                  <p className="font-tech text-[11px] uppercase tracking-[0.06em] text-[var(--color-text-muted)]">Multi selection</p>
+                  <p className="text-[13px] font-semibold text-[var(--color-primary)]">{selectedElementIds.length} layers selected</p>
+                </div>
+              </div>
+              <span className="font-tech text-[11px] text-[var(--color-text-muted)]">batch edit</span>
+            </div>
+
+            {selectionBounds && (
+              <Section title="Transform">
+                <NumberField
+                  label="X"
+                  value={Math.round(selectionBounds.minX)}
+                  onChange={(value) => {
+                    const dx = value - selectionBounds.minX
+                    if (dx === 0) {
+                      return
+                    }
+
+                    applyElementToSelection((element) => ({
+                      x: element.x + dx,
+                      x2: element.x2 !== undefined ? element.x2 + dx : undefined,
+                    }))
+                  }}
+                />
+                <NumberField
+                  label="Y"
+                  value={Math.round(selectionBounds.minY)}
+                  onChange={(value) => {
+                    const dy = value - selectionBounds.minY
+                    if (dy === 0) {
+                      return
+                    }
+
+                    applyElementToSelection((element) => ({
+                      y: element.y + dy,
+                      y2: element.y2 !== undefined ? element.y2 + dy : undefined,
+                    }))
+                  }}
+                />
+                {rotationTargets.length > 0 && (
+                  <NumberField
+                    label="Rotate"
+                    value={Math.round(avgRotation)}
+                    onChange={(value) => {
+                      const delta = value - avgRotation
+                      if (delta === 0) {
+                        return
+                      }
+
+                      applyElementToSelection(
+                        (element) => ({
+                          rotation: normalizeAngle(element.rotation + delta),
+                        }),
+                        (element) => element.type !== 'line',
+                      )
+                    }}
+                  />
+                )}
+              </Section>
+            )}
+
+            <Section title="Selection">
+              <NumberField
+                label="Alpha"
+                value={Math.round(avgOpacity * 100)}
+                onChange={(value) =>
+                  applyStyleToSelection(() => ({
+                    opacity: Math.max(0, Math.min(1, value / 100)),
+                  }))
+                }
+              />
+            </Section>
+
+            {hasFillTargets && fillReference && (
+              <Section title="Fill">
+                <label className="grid grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-2 text-[12px] text-[var(--color-text)]">
+                  <span className="font-tech text-[11px] uppercase tracking-[0.06em] text-[var(--color-text-muted)]">Fill</span>
+                  <div className="flex items-center gap-2 rounded-[4px] border border-[var(--color-outline)] bg-[var(--color-surface)] px-2 py-1">
+                    <input
+                      type="color"
+                      value={fillReference.style.fill === 'none' ? '#000000' : fillReference.style.fill}
+                      onChange={(event) =>
+                        applyStyleToSelection(
+                          () => ({ fill: event.target.value }),
+                          (element) => element.type !== 'line' && element.type !== 'image',
+                        )
+                      }
+                      className="h-6 w-8 border-0 bg-transparent p-0"
+                    />
+                    <span className="font-tech text-[11px]">{fillReference.style.fill}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      applyStyleToSelection(
+                        () => ({ fill: 'none' }),
+                        (element) => element.type !== 'line' && element.type !== 'image',
+                      )
+                    }
+                    className="h-8 rounded-[4px] border border-[var(--color-outline)] px-2 text-[11px] text-[var(--color-text-muted)] hover:bg-[var(--color-surface-low)]"
+                  >
+                    None
+                  </button>
+                </label>
+              </Section>
+            )}
+
+            {hasStrokeTargets && strokeReference && (
+              <Section title="Stroke">
+                <label className="grid grid-cols-[52px_minmax(0,1fr)_auto] items-center gap-2 text-[12px] text-[var(--color-text)]">
+                  <span className="font-tech text-[11px] uppercase tracking-[0.06em] text-[var(--color-text-muted)]">Stroke</span>
+                  <div className="flex items-center gap-2 rounded-[4px] border border-[var(--color-outline)] bg-[var(--color-surface)] px-2 py-1">
+                    <input
+                      type="color"
+                      value={strokeReference.style.stroke === 'none' ? '#000000' : strokeReference.style.stroke}
+                      onChange={(event) =>
+                        applyStyleToSelection(
+                          (element) => ({
+                            stroke: event.target.value,
+                            strokeWeight: element.style.strokeWeight > 0 ? element.style.strokeWeight : 1,
+                          }),
+                          (element) => element.type !== 'image',
+                        )
+                      }
+                      className="h-6 w-8 border-0 bg-transparent p-0"
+                    />
+                    <span className="font-tech text-[11px]">{strokeReference.style.stroke}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      applyStyleToSelection(
+                        () => ({ stroke: 'none', strokeWeight: 0 }),
+                        (element) => element.type !== 'image',
+                      )
+                    }
+                    className="h-8 rounded-[4px] border border-[var(--color-outline)] px-2 text-[11px] text-[var(--color-text-muted)] hover:bg-[var(--color-surface-low)]"
+                  >
+                    None
+                  </button>
+                </label>
+
+                <NumberField
+                  label="Weight"
+                  value={Math.max(0, Math.round(avgStrokeWeight))}
+                  onChange={(value) =>
+                    applyStyleToSelection(
+                      () => ({ strokeWeight: Math.max(0, value) }),
+                      (element) => element.type !== 'image',
+                    )
+                  }
+                />
+              </Section>
+            )}
+          </>
+        ) : selectedElement ? (
           <>
             <div className="flex items-center justify-between rounded-[4px] border border-[var(--color-outline)] bg-[var(--color-surface-low)] px-2 py-2">
               <div className="flex items-center gap-2">
