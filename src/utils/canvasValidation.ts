@@ -12,7 +12,7 @@ interface ValidationFailure {
 
 export type ValidationResult<T> = ValidationSuccess<T> | ValidationFailure
 
-const elementTypes: ElementType[] = ['rect', 'ellipse', 'triangle', 'diamond', 'arc', 'polygon', 'line', 'text', 'image']
+const elementTypes: ElementType[] = ['rect', 'ellipse', 'triangle', 'diamond', 'arc', 'polygon', 'freePolygon', 'line', 'text', 'image']
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null
@@ -22,6 +22,9 @@ const isNumber = (value: unknown): value is number =>
 
 const isString = (value: unknown): value is string =>
   typeof value === 'string'
+
+const isPolygonPoint = (value: unknown): value is { x: number; y: number } =>
+  isObject(value) && isNumber(value.x) && isNumber(value.y)
 
 const isElementType = (value: unknown): value is ElementType =>
   typeof value === 'string' && elementTypes.includes(value as ElementType)
@@ -93,6 +96,16 @@ const validateElement = (value: unknown): value is CanvasElement => {
 
   if (value.polygonSides !== undefined && !isNumber(value.polygonSides)) {
     return false
+  }
+
+  if (value.polygonPoints !== undefined) {
+    if (!Array.isArray(value.polygonPoints) || !value.polygonPoints.every((point) => isPolygonPoint(point))) {
+      return false
+    }
+  }
+
+  if (value.type === 'freePolygon') {
+    return Array.isArray(value.polygonPoints) && value.polygonPoints.length >= 3
   }
 
   return true

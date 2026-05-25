@@ -64,6 +64,17 @@ const elementToP5 = (element: CanvasElement, index: number) => {
       lines.push(`vertex(${x.toFixed(3)}, ${y.toFixed(3)});`)
     }
     lines.push(`endShape(CLOSE);`)
+  } else if (element.type === 'freePolygon') {
+    const points = element.polygonPoints ?? []
+    if (points.length >= 3) {
+      lines.push(`beginShape();`)
+      for (const point of points) {
+        const x = (point.x - 0.5) * element.width
+        const y = (point.y - 0.5) * element.height
+        lines.push(`vertex(${x.toFixed(3)}, ${y.toFixed(3)});`)
+      }
+      lines.push(`endShape(CLOSE);`)
+    }
   } else if (element.type === 'line') {
     const x2 = element.x2 ?? element.x + element.width
     const y2 = element.y2 ?? element.y + element.height
