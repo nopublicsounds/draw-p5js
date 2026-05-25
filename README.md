@@ -7,7 +7,7 @@ Built with React, TypeScript, Vite, and Zustand.
 
 ## Features
 
-- Shape tools: Select, Rect, Ellipse, Triangle, Diamond, Arc, Polygon, Line, Text, Image
+- Shape tools: Select, Rect, Ellipse, Triangle, Diamond, Arc, Polygon, Free Polygon, Line, Text, Image
 - Canvas editing: drag, resize, rotate, multi-select, align/distribute
 - Batch editing for multi-selected layers: X/Y/Rotate, Alpha, Fill, Stroke
 - State controls: Undo/Redo, JSON save/load
@@ -75,7 +75,7 @@ Top-level required fields:
 Each element requires:
 
 - id: string
-- type: one of rect, ellipse, triangle, diamond, arc, polygon, line, text, image
+- type: one of rect, ellipse, triangle, diamond, arc, polygon, freePolygon, line, text, image
 - x, y, width, height, rotation: number
 - style: object
 
@@ -95,6 +95,13 @@ Optional element fields:
 - x2, y2: number
 - arcStart, arcStop: number
 - polygonSides: number
+- polygonPoints: array of points ({ x: number, y: number })
+
+Notes for polygonPoints:
+
+- Used by freePolygon elements.
+- At least 3 points are required for freePolygon validation.
+- Points are normalized values relative to the element bounds (0 to 1 range is recommended).
 
 ### Valid JSON Example
 
@@ -116,6 +123,40 @@ Optional element fields:
         "fill": "#4A90D9",
         "stroke": "none",
         "strokeWeight": 0,
+        "opacity": 1
+      }
+    }
+  ]
+}
+```
+
+### Valid Free Polygon JSON Example
+
+```json
+{
+  "width": 800,
+  "height": 600,
+  "background": "#ffffff",
+  "elements": [
+    {
+      "id": "el-free-1",
+      "type": "freePolygon",
+      "x": 120,
+      "y": 140,
+      "width": 260,
+      "height": 220,
+      "rotation": 0,
+      "polygonPoints": [
+        { "x": 0.08, "y": 0.18 },
+        { "x": 0.78, "y": 0.05 },
+        { "x": 0.95, "y": 0.52 },
+        { "x": 0.62, "y": 0.9 },
+        { "x": 0.14, "y": 0.76 }
+      ],
+      "style": {
+        "fill": "#4A90D9",
+        "stroke": "#1E3A5F",
+        "strokeWeight": 1,
         "opacity": 1
       }
     }
@@ -184,7 +225,7 @@ Invalid because type is not supported:
 Validation tests are isolated under the test folder.
 
 - Test file: test/canvasValidation.test.ts
-- Coverage in this suite: 10 valid cases and 10 invalid cases
+- Coverage in this suite: 11 valid cases and 11 invalid cases
 
 Run:
 
