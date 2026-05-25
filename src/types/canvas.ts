@@ -1,4 +1,9 @@
-export type ElementType = 'rect' | 'ellipse' | 'triangle' | 'diamond' | 'arc' | 'polygon' | 'line' | 'text' | 'image'
+export interface PolygonPoint {
+  x: number
+  y: number
+}
+
+export type ElementType = 'rect' | 'ellipse' | 'triangle' | 'diamond' | 'arc' | 'polygon' | 'freePolygon' | 'line' | 'text' | 'image'
 
 export interface ElementStyle {
   fill: string
@@ -25,6 +30,7 @@ export interface CanvasElement {
   arcStart?: number
   arcStop?: number
   polygonSides?: number
+  polygonPoints?: PolygonPoint[]
 }
 
 export interface CanvasState {
