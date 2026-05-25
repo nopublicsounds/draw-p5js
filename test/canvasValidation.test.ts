@@ -189,6 +189,35 @@ describe('parseCanvasState', () => {
       },
     },
     {
+      name: 'accepts free polygon with vertex array',
+      data: {
+        ...cloneBaseCanvas(),
+        elements: [
+          {
+            id: 'el-11',
+            type: 'freePolygon',
+            x: 100,
+            y: 120,
+            width: 200,
+            height: 180,
+            rotation: 0,
+            polygonPoints: [
+              { x: 0.1, y: 0.2 },
+              { x: 0.85, y: 0.1 },
+              { x: 0.7, y: 0.8 },
+              { x: 0.2, y: 0.9 },
+            ],
+            style: {
+              fill: '#4A90D9',
+              stroke: '#223355',
+              strokeWeight: 1,
+              opacity: 1,
+            },
+          },
+        ],
+      },
+    },
+    {
       name: 'accepts mixed element collection',
       data: {
         ...cloneBaseCanvas(),
@@ -345,6 +374,30 @@ describe('parseCanvasState', () => {
           {
             ...cloneBaseCanvas().elements[0],
             polygonSides: '6',
+          },
+        ],
+      },
+    },
+    {
+      name: 'rejects free polygon with invalid or missing points',
+      data: {
+        ...cloneBaseCanvas(),
+        elements: [
+          {
+            id: 'el-12',
+            type: 'freePolygon',
+            x: 20,
+            y: 30,
+            width: 80,
+            height: 60,
+            rotation: 0,
+            polygonPoints: [{ x: 0, y: 0 }, { x: 1, y: 0 }],
+            style: {
+              fill: '#000000',
+              stroke: 'none',
+              strokeWeight: 0,
+              opacity: 1,
+            },
           },
         ],
       },
