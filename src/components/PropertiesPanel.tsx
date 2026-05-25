@@ -1,6 +1,7 @@
 import type { PropsWithChildren } from 'react'
 import type { CanvasElement } from '../types/canvas'
 import { cloneCanvasState, useCanvasStore } from '../store/canvasStore'
+import { measureTextBoxSize } from '../utils/textSizing'
 
 interface PropertiesPanelProps {
   selectedElement: CanvasElement | null
@@ -460,18 +461,49 @@ export function PropertiesPanel({ selectedElement }: PropertiesPanelProps) {
                   <textarea
                     rows={4}
                     value={selectedElement.text ?? ''}
-                    onChange={(event) => updateElement(selectedElement.id, { text: event.target.value })}
+                    onChange={(event) => {
+                      const text = event.target.value
+                      const { width, height } = measureTextBoxSize(
+                        text,
+                        selectedElement.fontSize ?? 24,
+                        selectedElement.fontFamily ?? 'Inter',
+                      )
+
+                      updateElement(selectedElement.id, { text, width, height })
+                    }}
                     className="min-h-24 w-full rounded-[4px] border border-[var(--color-outline)] bg-[var(--color-surface)] px-2 py-2 text-[13px] outline-none transition focus:border-[var(--color-accent)]"
                   />
                 </label>
 
                 <div className="space-y-2">
-                  <NumberField label="Size" value={selectedElement.fontSize ?? 24} onChange={(value) => updateElement(selectedElement.id, { fontSize: value })} />
+                  <NumberField
+                    label="Size"
+                    value={selectedElement.fontSize ?? 24}
+                    onChange={(value) => {
+                      const fontSize = Math.max(1, value)
+                      const { width, height } = measureTextBoxSize(
+                        selectedElement.text ?? '',
+                        fontSize,
+                        selectedElement.fontFamily ?? 'Inter',
+                      )
+
+                      updateElement(selectedElement.id, { fontSize, width, height })
+                    }}
+                  />
                   <label className="grid grid-cols-[44px_minmax(0,1fr)] items-center gap-2 text-[12px] text-[var(--color-text)]">
                     <span className="font-tech text-[11px] uppercase tracking-[0.06em] text-[var(--color-text-muted)]">Font</span>
                     <select
                       value={selectedElement.fontFamily ?? 'Inter'}
-                      onChange={(event) => updateElement(selectedElement.id, { fontFamily: event.target.value })}
+                      onChange={(event) => {
+                        const fontFamily = event.target.value
+                        const { width, height } = measureTextBoxSize(
+                          selectedElement.text ?? '',
+                          selectedElement.fontSize ?? 24,
+                          fontFamily,
+                        )
+
+                        updateElement(selectedElement.id, { fontFamily, width, height })
+                      }}
                       className="h-8 w-full rounded-[4px] border border-[var(--color-outline)] bg-[var(--color-surface)] px-2 text-[12px] outline-none transition focus:border-[var(--color-accent)]"
                     >
                       {fontFamilies.map((family) => (

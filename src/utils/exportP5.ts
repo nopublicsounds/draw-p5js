@@ -14,6 +14,8 @@ const hexToRgb = (value: string) => {
   }
 }
 
+const toJsStringLiteral = (value: string) => JSON.stringify(value)
+
 const colorStatement = (type: 'fill' | 'stroke', color: string, opacity: number) => {
   if (color === 'none') {
     return `${type === 'fill' ? 'noFill' : 'noStroke'}();`
@@ -35,12 +37,22 @@ const transformStart = (element: CanvasElement) => {
   ]
 }
 
+const getLineStrokeColor = (element: CanvasElement) => (element.style.stroke === 'none' ? '#182442' : element.style.stroke)
+
+const getLineStrokeWeight = (element: CanvasElement) => (element.style.strokeWeight > 0 ? element.style.strokeWeight : 2)
+
 const elementToP5 = (element: CanvasElement, index: number) => {
   const lines = [...transformStart(element)]
 
-  lines.push(colorStatement('fill', element.style.fill, element.style.opacity))
-  lines.push(colorStatement('stroke', element.style.stroke, element.style.opacity))
-  lines.push(`strokeWeight(${element.style.strokeWeight});`)
+  if (element.type === 'line') {
+    lines.push(`noFill();`)
+    lines.push(colorStatement('stroke', getLineStrokeColor(element), element.style.opacity))
+    lines.push(`strokeWeight(${getLineStrokeWeight(element)});`)
+  } else {
+    lines.push(colorStatement('fill', element.style.fill, element.style.opacity))
+    lines.push(colorStatement('stroke', element.style.stroke, element.style.opacity))
+    lines.push(`strokeWeight(${element.style.strokeWeight});`)
+  }
 
   if (element.type === 'rect') {
     lines.push(`rectMode(CENTER);`)
@@ -80,14 +92,46 @@ const elementToP5 = (element: CanvasElement, index: number) => {
     const y2 = element.y2 ?? element.y + element.height
     lines.push(`line(${element.x - (element.x + x2) / 2}, ${element.y - (element.y + y2) / 2}, ${x2 - (element.x + x2) / 2}, ${y2 - (element.y + y2) / 2});`)
   } else if (element.type === 'text') {
+    lines.push(`const _label${index} = ${toJsStringLiteral(element.text ?? 'Text')};`)
+    lines.push(`const _font${index} = ${toJsStringLiteral(element.fontFamily ?? 'Inter')};`)
+    lines.push(`textWrap(CHAR);`)
     lines.push(`textAlign(LEFT, TOP);`)
     lines.push(`textSize(${element.fontSize ?? 24});`)
-    lines.push(`textFont('${(element.fontFamily ?? 'Georgia').replace(/'/g, "\\'")}');`)
-    lines.push(`text(${JSON.stringify(element.text ?? 'Text')}, ${-element.width / 2}, ${-element.height / 2}, ${element.width});`)
+    lines.push(`textFont(_font${index});`)
+    lines.push(`if (${element.style.stroke !== 'none' && element.style.strokeWeight > 0}) {`)
+    lines.push(`  noFill();`)
+    lines.push(colorStatement('stroke', element.style.stroke, element.style.opacity))
+    lines.push(`  strokeWeight(${element.style.strokeWeight});`)
+    lines.push(`  rectMode(CORNER);`)
+    lines.push(`  rect(${-element.width / 2}, ${-element.height / 2}, ${element.width}, ${element.height});`)
+    lines.push(`}`)
+    lines.push(`if (${element.style.fill === 'none'}) {`)
+    lines.push(`  fill(11, 28, 48, ${Math.round(element.style.opacity * 255)});`)
+    lines.push(`} else {`)
+    lines.push(colorStatement('fill', element.style.fill, element.style.opacity))
+    lines.push(`}`)
+    lines.push(`noStroke();`)
+    lines.push(`text(_label${index}, ${-element.width / 2}, ${-element.height / 2});`)
   } else if (element.type === 'image') {
-    lines.push(`// Replace asset${index} with a preload image when image drawing is wired in.`)
-    lines.push(`rectMode(CENTER);`)
-    lines.push(`rect(0, 0, ${element.width}, ${element.height});`)
+    const hasSource = Boolean(element.src?.trim())
+    const imageKey = `asset_${index}`
+    if (hasSource) {
+      lines.push(`const _img${index} = imageAssets[${toJsStringLiteral(imageKey)}];`)
+      lines.push(`if (_img${index}) {`)
+      lines.push(`  imageMode(CENTER);`)
+      lines.push(`  image(_img${index}, 0, 0, ${element.width}, ${element.height});`)
+      lines.push(`} else {`)
+      lines.push(`  noStroke();`)
+      lines.push(`  fill(211, 228, 254, ${Math.round(element.style.opacity * 255)});`)
+      lines.push(`  rectMode(CENTER);`)
+      lines.push(`  rect(0, 0, ${element.width}, ${element.height});`)
+      lines.push(`}`)
+    } else {
+      lines.push(`noStroke();`)
+      lines.push(`fill(211, 228, 254, ${Math.round(element.style.opacity * 255)});`)
+      lines.push(`rectMode(CENTER);`)
+      lines.push(`rect(0, 0, ${element.width}, ${element.height});`)
+    }
   }
 
   lines.push('pop();')
@@ -97,9 +141,21 @@ const elementToP5 = (element: CanvasElement, index: number) => {
 export const exportCanvasToP5 = (canvas: CanvasState) => {
   const { r, g, b } = hexToRgb(canvas.background)
 
-  return `function setup() {
+  const imageElements = canvas.elements
+    .map((element, index) => ({ element, index }))
+    .filter(({ element }) => element.type === 'image' && Boolean(element.src?.trim()))
+
+  const preloadSection =
+    imageElements.length > 0
+      ? `\nconst imageAssets = {};\n\nfunction preload() {\n${imageElements
+          .map(({ element, index }) => `  imageAssets[${toJsStringLiteral(`asset_${index}`)}] = loadImage(${toJsStringLiteral(element.src ?? '')});`)
+          .join('\n')}\n}\n`
+      : `\nconst imageAssets = {};\n`
+
+  return `${preloadSection}\nfunction setup() {
   createCanvas(${canvas.width}, ${canvas.height});
   angleMode(DEGREES);
+  pixelDensity(window.devicePixelRatio || 1);
   noLoop();
 }
 

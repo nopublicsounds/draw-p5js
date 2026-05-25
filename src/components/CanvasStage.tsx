@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { cloneCanvasState, useCanvasStore } from '../store/canvasStore'
 import type { CanvasElement, CanvasState } from '../types/canvas'
+import { measureTextBoxSize } from '../utils/textSizing'
 
 interface Point {
   x: number
@@ -1284,15 +1285,18 @@ export function CanvasStage() {
 
     // Handle text tool
     if (activeTool === 'text') {
+      const initialText = ''
+      const textBounds = measureTextBoxSize(initialText, 24, 'Inter')
+
       const newElement: CanvasElement = {
         id: crypto.randomUUID(),
         type: 'text',
         x: point.x,
         y: point.y,
-        width: 200,
-        height: 60,
+        width: textBounds.width,
+        height: textBounds.height,
         rotation: 0,
-        text: '',
+        text: initialText,
         fontSize: 24,
         fontFamily: 'Inter',
         style: {
