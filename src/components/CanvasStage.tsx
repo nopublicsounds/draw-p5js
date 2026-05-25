@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { cloneCanvasState, useCanvasStore } from '../store/canvasStore'
 import type { CanvasElement, CanvasState } from '../types/canvas'
 
@@ -315,6 +315,11 @@ const pointInElement = (point: Point, element: CanvasElement) => {
     return pointAngle >= start || pointAngle <= stop
   }
 
+  if (element.type === 'freePolygon') {
+    const vertices = getFreePolygonVertices(element)
+    return pointInPolygon(localPoint, vertices)
+  }
+
   return (
     localPoint.x >= element.x &&
     localPoint.x <= element.x + element.width &&
@@ -445,6 +450,25 @@ const drawElement = (ctx: CanvasRenderingContext2D, element: CanvasElement) => {
       ctx.fillStyle = element.style.fill
       ctx.fill()
     }
+  } else if (element.type === 'freePolygon') {
+    const vertices = getFreePolygonVertices(element)
+    if (vertices.length >= 3) {
+      ctx.beginPath()
+      for (let i = 0; i < vertices.length; i += 1) {
+        const vertex = vertices[i]
+        if (i === 0) {
+          ctx.moveTo(vertex.x, vertex.y)
+        } else {
+          ctx.lineTo(vertex.x, vertex.y)
+        }
+      }
+      ctx.closePath()
+
+      if (element.style.fill !== 'none') {
+        ctx.fillStyle = element.style.fill
+        ctx.fill()
+      }
+    }
   } else if (element.type === 'text') {
     ctx.fillStyle = element.style.fill === 'none' ? '#0b1c30' : element.style.fill
     ctx.font = `${element.fontSize ?? 24}px ${element.fontFamily ?? 'Inter'}`
@@ -514,6 +538,21 @@ const drawElement = (ctx: CanvasRenderingContext2D, element: CanvasElement) => {
       }
       ctx.closePath()
       ctx.stroke()
+    } else if (element.type === 'freePolygon') {
+      const vertices = getFreePolygonVertices(element)
+      if (vertices.length >= 3) {
+        ctx.beginPath()
+        for (let i = 0; i < vertices.length; i += 1) {
+          const vertex = vertices[i]
+          if (i === 0) {
+            ctx.moveTo(vertex.x, vertex.y)
+          } else {
+            ctx.lineTo(vertex.x, vertex.y)
+          }
+        }
+        ctx.closePath()
+        ctx.stroke()
+      }
     } else {
       ctx.strokeRect(element.x, element.y, element.width, element.height)
     }
@@ -620,7 +659,42 @@ interface DrawingState {
   currentPoint: Point
 }
 
+interface FreePolygonDrawingState {
+  type: 'freePolygon'
+  points: Point[]
+  hoverPoint: Point | null
+}
+
 const normalizeAngle = (angle: number) => ((angle % 360) + 360) % 360
+
+const getFreePolygonVertices = (element: CanvasElement): Point[] => {
+  const points = element.polygonPoints ?? []
+  return points.map((point) => ({
+    x: element.x + point.x * element.width,
+    y: element.y + point.y * element.height,
+  }))
+}
+
+const pointInPolygon = (point: Point, vertices: Point[]) => {
+  if (vertices.length < 3) {
+    return false
+  }
+
+  let inside = false
+  for (let i = 0, j = vertices.length - 1; i < vertices.length; j = i, i += 1) {
+    const xi = vertices[i].x
+    const yi = vertices[i].y
+    const xj = vertices[j].x
+    const yj = vertices[j].y
+
+    const intersects = yi > point.y !== yj > point.y && point.x < ((xj - xi) * (point.y - yi)) / (yj - yi) + xi
+    if (intersects) {
+      inside = !inside
+    }
+  }
+
+  return inside
+}
 
 export function CanvasStage() {
   const canvasState = useCanvasStore((state) => state.canvas)
@@ -639,7 +713,7 @@ export function CanvasStage() {
   const setActiveTool = useCanvasStore((state) => state.setActiveTool)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const [dragState, setDragState] = useState<DragState | null>(null)
-  const [drawingState, setDrawingState] = useState<DrawingState | null>(null)
+  const [drawingState, setDrawingState] = useState<DrawingState | FreePolygonDrawingState | null>(null)
   const [selectionRect, setSelectionRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
   const horizontalRulerCount = Math.floor(canvasState.width / 100) + 1
   const verticalRulerCount = Math.floor(canvasState.height / 100) + 1
@@ -768,6 +842,50 @@ export function CanvasStage() {
       }
 
       ctx.restore()
+    } else if (drawingState && drawingState.type === 'freePolygon') {
+      ctx.save()
+      ctx.strokeStyle = '#182442'
+      ctx.fillStyle = 'rgba(74, 144, 217, 0.2)'
+      ctx.lineWidth = 2
+
+      if (drawingState.points.length > 0) {
+        // Draw committed edges between all vertices.
+        for (let i = 0; i < drawingState.points.length - 1; i += 1) {
+          const a = drawingState.points[i]
+          const b = drawingState.points[i + 1]
+          ctx.beginPath()
+          ctx.moveTo(a.x, a.y)
+          ctx.lineTo(b.x, b.y)
+          ctx.stroke()
+        }
+
+        // Draw the live edge from last vertex to pointer.
+        if (drawingState.hoverPoint) {
+          const last = drawingState.points[drawingState.points.length - 1]
+          ctx.beginPath()
+          ctx.moveTo(last.x, last.y)
+          ctx.lineTo(drawingState.hoverPoint.x, drawingState.hoverPoint.y)
+          ctx.stroke()
+        }
+
+        // Draw close-path edge so there is no visual gap between end and start.
+        if (drawingState.points.length >= 2) {
+          const first = drawingState.points[0]
+          const last = drawingState.hoverPoint ?? drawingState.points[drawingState.points.length - 1]
+          ctx.beginPath()
+          ctx.moveTo(last.x, last.y)
+          ctx.lineTo(first.x, first.y)
+          ctx.stroke()
+        }
+      }
+
+      for (const vertex of drawingState.points) {
+        ctx.beginPath()
+        ctx.arc(vertex.x, vertex.y, 3, 0, Math.PI * 2)
+        ctx.fill()
+      }
+
+      ctx.restore()
     }
 
     // Draw selection rectangle for multi-select
@@ -870,7 +988,7 @@ export function CanvasStage() {
   }, [dragState, pushHistorySnapshot, updateElement, selectedElementIds])
 
   useEffect(() => {
-    if (!drawingState) {
+    if (!drawingState || drawingState.type !== 'drawing') {
       return
     }
 
@@ -881,7 +999,7 @@ export function CanvasStage() {
       }
 
       const point = getCanvasPoint(event, canvas)
-      setDrawingState((state) => (state ? { ...state, currentPoint: point } : state))
+      setDrawingState((state) => (state && state.type === 'drawing' ? { ...state, currentPoint: point } : state))
     }
 
     const handleMouseUp = () => {
@@ -997,13 +1115,128 @@ export function CanvasStage() {
     }
   }, [selectionRect, elements, selectElements])
 
-  const handleMouseDown = (event: React.MouseEvent<HTMLCanvasElement>) => {
+  const finalizeFreePolygon = useCallback(() => {
+    const currentState = drawingState
+
+    if (!currentState || currentState.type !== 'freePolygon' || currentState.points.length < 3) {
+      return
+    }
+
+    const xs = currentState.points.map((point) => point.x)
+    const ys = currentState.points.map((point) => point.y)
+    const minX = Math.min(...xs)
+    const minY = Math.min(...ys)
+    const maxX = Math.max(...xs)
+    const maxY = Math.max(...ys)
+    const width = Math.max(1, maxX - minX)
+    const height = Math.max(1, maxY - minY)
+
+    const newElement: CanvasElement = {
+      id: crypto.randomUUID(),
+      type: 'freePolygon',
+      x: minX,
+      y: minY,
+      width,
+      height,
+      rotation: 0,
+      polygonPoints: currentState.points.map((point) => ({
+        x: (point.x - minX) / width,
+        y: (point.y - minY) / height,
+      })),
+      style: {
+        fill: '#4A90D9',
+        stroke: 'none',
+        strokeWeight: 0,
+        opacity: 1,
+      },
+    }
+
+    addElement(newElement)
+    setDrawingState(null)
+  }, [addElement, drawingState])
+
+  useEffect(() => {
+    if (!drawingState || drawingState.type !== 'freePolygon') {
+      return
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Enter') {
+        event.preventDefault()
+        finalizeFreePolygon()
+      } else if (event.key === 'Escape') {
+        event.preventDefault()
+        setDrawingState(null)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [drawingState, finalizeFreePolygon])
+
+  const handleCanvasMouseMove = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!drawingState || drawingState.type !== 'freePolygon') {
+      return
+    }
+
     const canvas = canvasRef.current
     if (!canvas) {
       return
     }
 
     const point = getCanvasPoint(event.nativeEvent, canvas)
+    setDrawingState((state) => (state && state.type === 'freePolygon' ? { ...state, hoverPoint: point } : state))
+  }
+
+  const handleCanvasContextMenu = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    event.preventDefault()
+
+    if (activeTool === 'freePolygon') {
+      finalizeFreePolygon()
+    }
+  }
+
+  const handleMouseDown = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current
+    if (!canvas) {
+      return
+    }
+
+    if (activeTool !== 'freePolygon' && event.button !== 0) {
+      return
+    }
+
+    const point = getCanvasPoint(event.nativeEvent, canvas)
+
+    if (activeTool === 'freePolygon') {
+      if (event.button === 2) {
+        finalizeFreePolygon()
+        return
+      }
+
+      if (event.button !== 0) {
+        return
+      }
+
+      setDrawingState((state) => {
+        if (state && state.type === 'freePolygon') {
+          return {
+            ...state,
+            points: [...state.points, point],
+            hoverPoint: point,
+          }
+        }
+
+        return {
+          type: 'freePolygon',
+          points: [point],
+          hoverPoint: point,
+        }
+      })
+      return
+    }
 
     if (activeTool === 'select' && selectedElementIds.length === 1) {
       const selectedElement = elements.find((element) => element.id === selectedElementIds[0])
@@ -1193,6 +1426,8 @@ export function CanvasStage() {
               <canvas
                 ref={canvasRef}
                 onMouseDown={handleMouseDown}
+                onMouseMove={handleCanvasMouseMove}
+                onContextMenu={handleCanvasContextMenu}
                 className="mx-auto block border border-[var(--color-outline)] bg-white shadow-[0_1px_0_rgba(24,36,66,0.06),0_12px_24px_rgba(24,36,66,0.08)]"
               />
             </div>
@@ -1201,7 +1436,7 @@ export function CanvasStage() {
       </div>
 
       <div className="flex items-center justify-between border-t border-[var(--color-outline)] px-3 py-2">
-        <p className="font-tech text-[11px] text-[var(--color-text-muted)]">Empty click clears selection. Arrow keys move 1px. Shift + arrows move 10px.</p>
+        <p className="font-tech text-[11px] text-[var(--color-text-muted)]">Empty click clears selection. Free polygon: right-click or Enter to finish. Arrow keys move 1px. Shift + arrows move 10px.</p>
         <p className="font-tech text-[11px] text-[var(--color-text-muted)]">Ctrl/Cmd + Z undo · Ctrl/Cmd + Y redo · Ctrl/Cmd + D duplicate</p>
       </div>
     </section>

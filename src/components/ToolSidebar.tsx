@@ -9,6 +9,7 @@ const tools: { tool: EditorTool; label: string; hint: string }[] = [
   { tool: 'diamond', label: 'Diamond', hint: 'Click-drag to draw' },
   { tool: 'arc', label: 'Arc', hint: 'Click-drag to draw' },
   { tool: 'polygon', label: 'Polygon', hint: 'Click-drag to draw' },
+  { tool: 'freePolygon', label: 'Free Polygon', hint: 'Click to add vertex' },
   { tool: 'line', label: 'Line', hint: 'Click-drag to draw' },
   { tool: 'text', label: 'Text', hint: 'Click to place' },
   { tool: 'image', label: 'Image', hint: 'Click for picker' },
@@ -22,13 +23,14 @@ const toolIcons: Record<EditorTool, string> = {
   diamond: 'M10 3 17 10 10 17 3 10z',
   arc: 'M4 11a6 6 0 1 1 12 0',
   polygon: 'M10 3 16 7 14 15 6 15 4 7z',
+  freePolygon: 'M3 6 8 3 13 7 17 5 15 14 6 16z',
   line: 'M4 15 16 5',
   text: 'M5 5h10M10 5v10',
   image: 'M4 5h12v10H4zm2 7 2.5-3 2.5 2 2-2 3 3',
 }
 
 function ToolGlyph({ tool }: { tool: EditorTool }) {
-  if (tool === 'line' || tool === 'text' || tool === 'image' || tool === 'triangle' || tool === 'diamond' || tool === 'arc' || tool === 'polygon') {
+  if (tool === 'line' || tool === 'text' || tool === 'image' || tool === 'triangle' || tool === 'diamond' || tool === 'arc' || tool === 'polygon' || tool === 'freePolygon') {
     return (
       <svg viewBox="0 0 20 20" className="h-5 w-5 fill-none stroke-current stroke-[1.6]" aria-hidden="true">
         <path d={toolIcons[tool]} strokeLinecap="round" strokeLinejoin="round" />
