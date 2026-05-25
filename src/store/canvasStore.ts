@@ -14,51 +14,7 @@ const initialCanvas: CanvasState = {
   width: 800,
   height: 600,
   background: '#f8fafc',
-  elements: [
-    {
-      id: crypto.randomUUID(),
-      type: 'rect',
-      x: 96,
-      y: 88,
-      width: 220,
-      height: 132,
-      rotation: -6,
-      style: defaultStyle,
-    },
-    {
-      id: crypto.randomUUID(),
-      type: 'ellipse',
-      x: 420,
-      y: 144,
-      width: 178,
-      height: 178,
-      rotation: 12,
-      style: {
-        fill: '#F28C52',
-        stroke: 'none',
-        strokeWeight: 0,
-        opacity: 0.92,
-      },
-    },
-    {
-      id: crypto.randomUUID(),
-      type: 'text',
-      x: 180,
-      y: 346,
-      width: 320,
-      height: 64,
-      rotation: 0,
-      text: 'p5 scene',
-      fontSize: 40,
-      fontFamily: 'Georgia',
-      style: {
-        fill: '#172033',
-        stroke: 'none',
-        strokeWeight: 0,
-        opacity: 1,
-      },
-    },
-  ],
+  elements: []
 }
 
 const cloneCanvasState = (canvas: CanvasState): CanvasState => structuredClone(canvas)
