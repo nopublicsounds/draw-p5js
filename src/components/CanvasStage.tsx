@@ -702,6 +702,7 @@ const pointInPolygon = (point: Point, vertices: Point[]) => {
 
 export function CanvasStage() {
   const canvasState = useCanvasStore((state) => state.canvas)
+  const snapEnabled = useCanvasStore((state) => state.snapEnabled)
   const elements = useCanvasStore((state) => state.canvas.elements)
   const selectedElementId = useCanvasStore((state) => state.selectedElementId)
   const selectedElementIds = useCanvasStore((state) => state.selectedElementIds)
@@ -722,6 +723,12 @@ export function CanvasStage() {
   const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([])
   const horizontalRulerCount = Math.floor(canvasState.width / 100) + 1
   const verticalRulerCount = Math.floor(canvasState.height / 100) + 1
+
+  useEffect(() => {
+    if (!snapEnabled) {
+      setSnapGuides([])
+    }
+  }, [snapEnabled])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -953,7 +960,7 @@ export function CanvasStage() {
         let snappedDy = dy
         let nextGuides: SnapGuide[] = []
 
-        if (!event.altKey && dragState.initialMoveBounds) {
+        if (snapEnabled && !event.altKey && dragState.initialMoveBounds) {
           const snapCandidates = getSnapCandidates(
             dragState.beforeCanvas,
             dragState.beforeCanvas.elements,
@@ -992,7 +999,7 @@ export function CanvasStage() {
           let nextResized = resized
           const nextGuides: SnapGuide[] = []
 
-          if (!event.altKey && dragState.handle && dragState.handle !== 'rotate' && Math.abs(dragState.initialElement.rotation) < 0.01) {
+          if (snapEnabled && !event.altKey && dragState.handle && dragState.handle !== 'rotate' && Math.abs(dragState.initialElement.rotation) < 0.01) {
             const direction = getHandleDirection(dragState.handle)
             const previewElement: CanvasElement = {
               ...dragState.initialElement,
@@ -1050,7 +1057,7 @@ export function CanvasStage() {
       window.removeEventListener('mousemove', handleMouseMove)
       window.removeEventListener('mouseup', handleMouseUp)
     }
-  }, [dragState, pushHistorySnapshot, updateElement, selectedElementIds])
+  }, [dragState, pushHistorySnapshot, updateElement, selectedElementIds, snapEnabled])
 
   useEffect(() => {
     if (!drawingState || drawingState.type !== 'drawing') {
@@ -1064,7 +1071,7 @@ export function CanvasStage() {
       }
 
       const point = getCanvasPoint(event, canvas)
-      if (event.altKey) {
+      if (!snapEnabled || event.altKey) {
         setSnapGuides([])
         setDrawingState((state) => (state && state.type === 'drawing' ? { ...state, currentPoint: point } : state))
         return
@@ -1142,7 +1149,7 @@ export function CanvasStage() {
       window.removeEventListener('mousemove', handleMouseMove)
       window.removeEventListener('mouseup', handleMouseUp)
     }
-  }, [drawingState, addElement, canvasState, elements])
+  }, [drawingState, addElement, canvasState, elements, snapEnabled])
 
   useEffect(() => {
     if (!selectionRect) {

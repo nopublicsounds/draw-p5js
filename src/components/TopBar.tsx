@@ -26,6 +26,8 @@ export function TopBar({
   statusMessage,
 }: TopBarProps) {
   const canvas = useCanvasStore((state) => state.canvas)
+  const snapEnabled = useCanvasStore((state) => state.snapEnabled)
+  const toggleSnapEnabled = useCanvasStore((state) => state.toggleSnapEnabled)
   const updateCanvasSize = useCanvasStore((state) => state.updateCanvasSize)
 
   return (
@@ -105,6 +107,16 @@ export function TopBar({
             className="h-8 rounded-[4px] border border-white/18 px-3 text-[12px] font-medium text-white transition hover:bg-white/8 disabled:cursor-not-allowed disabled:opacity-35"
           >
             Redo
+          </button>
+
+          <button
+            type="button"
+            onClick={toggleSnapEnabled}
+            className={`h-8 rounded-[4px] border px-3 text-[12px] font-medium transition ${
+              snapEnabled ? 'border-white/18 bg-white/10 text-white hover:bg-white/16' : 'border-white/25 text-[#dce7ff] hover:bg-white/8'
+            }`}
+          >
+            Snap {snapEnabled ? 'On' : 'Off'}
           </button>
 
           <button
