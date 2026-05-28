@@ -10,6 +10,7 @@ import { parseCanvasState } from './utils/canvasValidation'
 import { exportCanvasToP5 } from './utils/exportP5'
 
 const CANVAS_STATE_STORAGE_KEY = 'draw-p5js.canvas-state'
+const SNAP_ENABLED_STORAGE_KEY = 'draw-p5js.snap-enabled'
 
 function App() {
   const canvas = useCanvasStore((state) => state.canvas)
@@ -25,6 +26,8 @@ function App() {
   const setCanvasState = useCanvasStore((state) => state.setCanvasState)
   const undo = useCanvasStore((state) => state.undo)
   const redo = useCanvasStore((state) => state.redo)
+  const snapEnabled = useCanvasStore((state) => state.snapEnabled)
+  const setSnapEnabled = useCanvasStore((state) => state.setSnapEnabled)
   const historyLength = useCanvasStore((state) => state.history.length)
   const futureLength = useCanvasStore((state) => state.future.length)
   const [statusMessage, setStatusMessage] = useState('Select and drag elements. Export, save, or load canvas data.')
@@ -33,6 +36,7 @@ function App() {
   const latestCanvasRef = useRef(canvas)
 
   const restoredRef = useRef(false)
+  const snapRestoredRef = useRef(false)
 
   const selectedElement = useMemo(
     () => elements.find((element) => element.id === selectedElementId) ?? null,
@@ -74,6 +78,21 @@ function App() {
   }, [canvas, setCanvasState])
 
   useEffect(() => {
+    if (snapRestoredRef.current) {
+      return
+    }
+
+    snapRestoredRef.current = true
+    const savedSnapEnabled = window.localStorage.getItem(SNAP_ENABLED_STORAGE_KEY)
+
+    if (savedSnapEnabled === 'true') {
+      setSnapEnabled(true)
+    } else if (savedSnapEnabled === 'false') {
+      setSnapEnabled(false)
+    }
+  }, [setSnapEnabled])
+
+  useEffect(() => {
     const saveTimer = window.setInterval(() => {
       if (!restoredRef.current) {
         return
@@ -84,6 +103,14 @@ function App() {
 
     return () => window.clearInterval(saveTimer)
   }, [])
+
+  useEffect(() => {
+    if (!snapRestoredRef.current) {
+      return
+    }
+
+    window.localStorage.setItem(SNAP_ENABLED_STORAGE_KEY, String(snapEnabled))
+  }, [snapEnabled])
 
 
   useEffect(() => {
