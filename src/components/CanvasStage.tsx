@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { cloneCanvasState, useCanvasStore } from '../store/canvasStore'
 import type { CanvasElement, CanvasState } from '../types/canvas'
+import { getCombinedBounds, getSnapCandidates, snapDrawPoint, snapMoveBounds, snapResizeBounds, type Bounds, type SnapGuide } from '../utils/canvasSnap'
 import { measureTextBoxSize } from '../utils/textSizing'
 
 interface Point {
@@ -22,6 +23,8 @@ interface DragState {
   initialCenter?: Point
   initialRotation?: number
   startAngle?: number
+  movingElementIds?: string[]
+  initialMoveBounds?: Bounds
 }
 
 const HANDLE_SIZE = 8
@@ -716,6 +719,7 @@ export function CanvasStage() {
   const [dragState, setDragState] = useState<DragState | null>(null)
   const [drawingState, setDrawingState] = useState<DrawingState | FreePolygonDrawingState | null>(null)
   const [selectionRect, setSelectionRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
+  const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([])
   const horizontalRulerCount = Math.floor(canvasState.width / 100) + 1
   const verticalRulerCount = Math.floor(canvasState.height / 100) + 1
 
@@ -745,6 +749,28 @@ export function CanvasStage() {
 
     for (const element of elements) {
       drawElement(ctx, element)
+    }
+
+    if (snapGuides.length > 0) {
+      ctx.save()
+      ctx.strokeStyle = '#4A90D9'
+      ctx.lineWidth = 1
+      ctx.setLineDash([6, 4])
+
+      for (const guide of snapGuides) {
+        ctx.beginPath()
+        if (guide.axis === 'x') {
+          ctx.moveTo(guide.value, 0)
+          ctx.lineTo(guide.value, canvasState.height)
+        } else {
+          ctx.moveTo(0, guide.value)
+          ctx.lineTo(canvasState.width, guide.value)
+        }
+        ctx.stroke()
+      }
+
+      ctx.setLineDash([])
+      ctx.restore()
     }
 
     // Draw drawing preview
@@ -904,7 +930,7 @@ export function CanvasStage() {
 
     // Draw selections
     drawSelection(ctx, elements, selectedElementIds)
-  }, [canvasState, elements, selectedElementId, selectedElementIds, drawingState, selectionRect])
+  }, [canvasState, elements, selectedElementId, selectedElementIds, drawingState, selectionRect, snapGuides])
 
   useEffect(() => {
     if (!dragState) {
@@ -922,32 +948,40 @@ export function CanvasStage() {
       const dy = point.y - dragState.startPoint.y
 
       if (dragState.mode === 'move') {
-        // If multiple elements are selected, move them all
-        if (selectedElementIds.length > 1 && selectedElementIds.includes(dragState.id)) {
-          const selectedSet = new Set(selectedElementIds)
-          for (const element of dragState.beforeCanvas.elements) {
-            if (selectedSet.has(element.id)) {
-              updateElement(
-                element.id,
-                {
-                  x: element.x + dx,
-                  y: element.y + dy,
-                  x2: element.x2 !== undefined ? element.x2 + dx : undefined,
-                  y2: element.y2 !== undefined ? element.y2 + dy : undefined,
-                },
-                false,
-              )
-            }
+        const movingIds = dragState.movingElementIds ?? [dragState.id]
+        let snappedDx = dx
+        let snappedDy = dy
+        let nextGuides: SnapGuide[] = []
+
+        if (!event.altKey && dragState.initialMoveBounds) {
+          const snapCandidates = getSnapCandidates(
+            dragState.beforeCanvas,
+            dragState.beforeCanvas.elements,
+            new Set(movingIds),
+            getElementBounds,
+          )
+
+          const snappedMove = snapMoveBounds(dragState.initialMoveBounds, dx, dy, snapCandidates)
+          snappedDx = snappedMove.dx
+          snappedDy = snappedMove.dy
+          nextGuides = snappedMove.guides
+        }
+
+        setSnapGuides(nextGuides)
+
+        const movingSet = new Set(movingIds)
+        for (const element of dragState.beforeCanvas.elements) {
+          if (!movingSet.has(element.id)) {
+            continue
           }
-        } else {
-          // Single element drag
+
           updateElement(
-            dragState.id,
+            element.id,
             {
-              x: dragState.initialElement.x + dx,
-              y: dragState.initialElement.y + dy,
-              x2: dragState.initialElement.x2 !== undefined ? dragState.initialElement.x2 + dx : undefined,
-              y2: dragState.initialElement.y2 !== undefined ? dragState.initialElement.y2 + dy : undefined,
+              x: element.x + snappedDx,
+              y: element.y + snappedDy,
+              x2: element.x2 !== undefined ? element.x2 + snappedDx : undefined,
+              y2: element.y2 !== undefined ? element.y2 + snappedDy : undefined,
             },
             false,
           )
@@ -955,9 +989,38 @@ export function CanvasStage() {
       } else if (dragState.mode === 'resize') {
         const resized = applyResize(dragState, point)
         if (resized) {
-          updateElement(dragState.id, resized, false)
+          let nextResized = resized
+          const nextGuides: SnapGuide[] = []
+
+          if (!event.altKey && dragState.handle && dragState.handle !== 'rotate' && Math.abs(dragState.initialElement.rotation) < 0.01) {
+            const direction = getHandleDirection(dragState.handle)
+            const previewElement: CanvasElement = {
+              ...dragState.initialElement,
+              ...resized,
+            }
+            const previewBounds = getElementBounds(previewElement)
+            const snapCandidates = getSnapCandidates(
+              dragState.beforeCanvas,
+              dragState.beforeCanvas.elements,
+              new Set([dragState.id]),
+              getElementBounds,
+            )
+
+            const snappedResize = snapResizeBounds(previewBounds, direction, snapCandidates, MIN_ELEMENT_SIZE)
+            nextResized = {
+              ...nextResized,
+              ...snappedResize.bounds,
+            }
+            nextGuides.push(...snappedResize.guides)
+          }
+
+          setSnapGuides(nextGuides)
+          updateElement(dragState.id, nextResized, false)
+        } else {
+          setSnapGuides([])
         }
       } else if (dragState.mode === 'rotate' && dragState.initialCenter && dragState.initialRotation !== undefined && dragState.startAngle !== undefined) {
+        setSnapGuides([])
         const angle = Math.atan2(point.y - dragState.initialCenter.y, point.x - dragState.initialCenter.x)
         const delta = ((angle - dragState.startAngle) * 180) / Math.PI
         updateElement(
@@ -976,6 +1039,7 @@ export function CanvasStage() {
       if (dragState.moved) {
         pushHistorySnapshot(dragState.beforeCanvas)
       }
+      setSnapGuides([])
       setDragState(null)
     }
 
@@ -1000,7 +1064,18 @@ export function CanvasStage() {
       }
 
       const point = getCanvasPoint(event, canvas)
-      setDrawingState((state) => (state && state.type === 'drawing' ? { ...state, currentPoint: point } : state))
+      if (event.altKey) {
+        setSnapGuides([])
+        setDrawingState((state) => (state && state.type === 'drawing' ? { ...state, currentPoint: point } : state))
+        return
+      }
+
+      const excludedIds = new Set<string>()
+      const snapCandidates = getSnapCandidates(canvasState, elements, excludedIds, getElementBounds)
+      const snappedDraw = snapDrawPoint(drawingState.startPoint, point, snapCandidates)
+
+      setSnapGuides(snappedDraw.guides)
+      setDrawingState((state) => (state && state.type === 'drawing' ? { ...state, currentPoint: snappedDraw.point } : state))
     }
 
     const handleMouseUp = () => {
@@ -1014,6 +1089,7 @@ export function CanvasStage() {
 
       if (Math.abs(width) < 2 || Math.abs(height) < 2) {
         // Ignore tiny drawings
+        setSnapGuides([])
         setDrawingState(null)
         return
       }
@@ -1055,6 +1131,7 @@ export function CanvasStage() {
       }
 
       addElement(baseElement)
+      setSnapGuides([])
       setDrawingState(null)
     }
 
@@ -1065,7 +1142,7 @@ export function CanvasStage() {
       window.removeEventListener('mousemove', handleMouseMove)
       window.removeEventListener('mouseup', handleMouseUp)
     }
-  }, [drawingState, addElement])
+  }, [drawingState, addElement, canvasState, elements])
 
   useEffect(() => {
     if (!selectionRect) {
@@ -1236,6 +1313,7 @@ export function CanvasStage() {
           hoverPoint: point,
         }
       })
+      setSnapGuides([])
       return
     }
 
@@ -1257,6 +1335,7 @@ export function CanvasStage() {
             initialRotation: selectedElement.rotation,
             startAngle: Math.atan2(point.y - center.y, point.x - center.x),
           })
+          setSnapGuides([])
           return
         }
       }
@@ -1280,6 +1359,7 @@ export function CanvasStage() {
         startPoint: point,
         currentPoint: point,
       })
+      setSnapGuides([])
       return
     }
 
@@ -1375,14 +1455,21 @@ export function CanvasStage() {
       return
     }
 
+    const movingElementIds =
+      selectedElementIds.length > 1 && selectedElementIds.includes(hitElement.id) ? selectedElementIds : [hitElement.id]
+    const currentCanvas = useCanvasStore.getState().canvas
+    const movingElements = currentCanvas.elements.filter((element) => movingElementIds.includes(element.id))
+
     // Start dragging
     setDragState({
       mode: 'move',
       id: hitElement.id,
       startPoint: point,
       initialElement: structuredClone(hitElement),
-      beforeCanvas: cloneCanvasState(useCanvasStore.getState().canvas),
+      beforeCanvas: cloneCanvasState(currentCanvas),
       moved: false,
+      movingElementIds,
+      initialMoveBounds: getCombinedBounds(movingElements, getElementBounds) ?? getElementBounds(hitElement),
     })
   }
 
@@ -1440,7 +1527,7 @@ export function CanvasStage() {
       </div>
 
       <div className="flex items-center justify-between border-t border-[var(--color-outline)] px-3 py-2">
-        <p className="font-tech text-[11px] text-[var(--color-text-muted)]">Empty click clears selection. Free polygon: right-click or Enter to finish. Arrow keys move 1px. Shift + arrows move 10px.</p>
+        <p className="font-tech text-[11px] text-[var(--color-text-muted)]">Empty click clears selection. Free polygon: right-click or Enter to finish. Arrow keys move 1px. Shift + arrows move 10px. Hold Alt while dragging to bypass snapping.</p>
         <p className="font-tech text-[11px] text-[var(--color-text-muted)]">Ctrl/Cmd + Z undo · Ctrl/Cmd + Y redo · Ctrl/Cmd + D duplicate</p>
       </div>
     </section>
