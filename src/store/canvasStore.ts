@@ -28,11 +28,14 @@ const pushHistory = (history: CanvasState[], canvas: CanvasState) => {
 
 interface CanvasStore {
   canvas: CanvasState
+  snapEnabled: boolean
   selectedElementId: string | null
   selectedElementIds: string[]
   activeTool: EditorTool
   history: CanvasState[]
   future: CanvasState[]
+  setSnapEnabled: (enabled: boolean) => void
+  toggleSnapEnabled: () => void
   setActiveTool: (tool: EditorTool) => void
   selectElement: (id: string | null) => void
   selectElements: (ids: string[]) => void
@@ -75,11 +78,14 @@ interface CanvasStore {
 
 export const useCanvasStore = create<CanvasStore>((set, get) => ({
   canvas: initialCanvas,
+  snapEnabled: true,
   selectedElementId: null,
   selectedElementIds: [],
   activeTool: 'select',
   history: [],
   future: [],
+  setSnapEnabled: (enabled) => set({ snapEnabled: enabled }),
+  toggleSnapEnabled: () => set((state) => ({ snapEnabled: !state.snapEnabled })),
   setActiveTool: (tool) => set({ activeTool: tool }),
   selectElement: (id) => set({ selectedElementId: id, selectedElementIds: id ? [id] : [] }),
   selectElements: (ids) => set({ selectedElementIds: ids, selectedElementId: ids.length === 1 ? ids[0] : (ids.length > 1 ? ids[0] : null) }),
