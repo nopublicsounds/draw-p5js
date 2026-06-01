@@ -1,7 +1,7 @@
 # draw-p5js
 <div style="display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; margin-bottom: 20px;">
-  <img src="./public/main.png" alt="draw-p5js screenshot" width="600" />
-  <img src="./public/main2.png" alt="draw-p5js screenshot 2" width="600" />
+  <img src="./public/main.png" alt="draw-p5js screenshot" />
+  <img src="./public/main2.png" alt="draw-p5js screenshot 2" />
 </div>
 
 draw-p5js is a visual canvas editor for building p5.js-style scenes and exporting them as code.  
