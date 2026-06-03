@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { cloneCanvasState, useCanvasStore } from '../store/canvasStore'
 import type { CanvasElement, CanvasState } from '../types/canvas'
 import { getCombinedBounds, getSnapCandidates, snapDrawPoint, snapMoveBounds, snapResizeBounds, type Bounds, type SnapGuide } from '../utils/canvasSnap'
@@ -721,14 +721,9 @@ export function CanvasStage() {
   const [drawingState, setDrawingState] = useState<DrawingState | FreePolygonDrawingState | null>(null)
   const [selectionRect, setSelectionRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
   const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([])
+  const visibleSnapGuides = useMemo(() => (snapEnabled ? snapGuides : []), [snapEnabled, snapGuides])
   const horizontalRulerCount = Math.floor(canvasState.width / 100) + 1
   const verticalRulerCount = Math.floor(canvasState.height / 100) + 1
-
-  useEffect(() => {
-    if (!snapEnabled) {
-      setSnapGuides([])
-    }
-  }, [snapEnabled])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -758,13 +753,13 @@ export function CanvasStage() {
       drawElement(ctx, element)
     }
 
-    if (snapGuides.length > 0) {
+    if (visibleSnapGuides.length > 0) {
       ctx.save()
       ctx.strokeStyle = '#4A90D9'
       ctx.lineWidth = 1
       ctx.setLineDash([6, 4])
 
-      for (const guide of snapGuides) {
+      for (const guide of visibleSnapGuides) {
         ctx.beginPath()
         if (guide.axis === 'x') {
           ctx.moveTo(guide.value, 0)
@@ -937,7 +932,7 @@ export function CanvasStage() {
 
     // Draw selections
     drawSelection(ctx, elements, selectedElementIds)
-  }, [canvasState, elements, selectedElementId, selectedElementIds, drawingState, selectionRect, snapGuides])
+  }, [canvasState, elements, selectedElementId, selectedElementIds, drawingState, selectionRect, visibleSnapGuides])
 
   useEffect(() => {
     if (!dragState) {
