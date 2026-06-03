@@ -12,17 +12,54 @@ interface NumberFieldProps {
   value: number
   onChange: (value: number) => void
   step?: number
+  min?: number
+  max?: number
 }
 
-function NumberField({ label, value, onChange, step = 1 }: NumberFieldProps) {
+const parseNumberInput = (value: string, fallback: number) => {
+  const trimmed = value.trim()
+  if (trimmed.length === 0) {
+    return fallback
+  }
+
+  const parsed = Number(trimmed)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
+const clampNumber = (value: number, min?: number, max?: number) => {
+  let next = value
+  if (min !== undefined) {
+    next = Math.max(min, next)
+  }
+  if (max !== undefined) {
+    next = Math.min(max, next)
+  }
+  return next
+}
+
+function NumberField({ label, value, onChange, step = 1, min, max }: NumberFieldProps) {
+  const commitValue = (rawValue: string) => {
+    const parsed = parseNumberInput(rawValue, value)
+    onChange(clampNumber(parsed, min, max))
+  }
+
   return (
     <label className="grid grid-cols-[44px_minmax(0,1fr)] items-center gap-2 text-[12px] text-[var(--color-text)]">
       <span className="font-tech text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--color-text-muted)]">{label}</span>
       <input
+        key={`${label}-${value}`}
         type="number"
-        value={value}
+        defaultValue={value}
         step={step}
-        onChange={(event) => onChange(Number(event.target.value))}
+        min={min}
+        max={max}
+        onBlur={(event) => commitValue(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            commitValue((event.target as HTMLInputElement).value)
+            ;(event.target as HTMLInputElement).blur()
+          }
+        }}
         className="font-tech h-8 w-full rounded-[4px] border border-[var(--color-outline)] bg-[var(--color-surface)] px-2 text-right outline-none transition focus:border-[var(--color-accent)]"
       />
     </label>
@@ -42,6 +79,13 @@ function Section({ title, children }: PropsWithChildren<{ title: string }>) {
 }
 
 const normalizeAngle = (angle: number) => ((angle % 360) + 360) % 360
+const ELEMENT_MIN_SIZE = 1
+const STROKE_WEIGHT_MIN = 0
+const OPACITY_PERCENT_MIN = 0
+const OPACITY_PERCENT_MAX = 100
+const FONT_SIZE_MIN = 1
+const POLYGON_SIDES_MIN = 3
+const POLYGON_SIDES_MAX = 24
 
 const getElementBounds = (element: CanvasElement) => {
   if (element.type === 'line') {
@@ -260,6 +304,8 @@ export function PropertiesPanel({ selectedElement }: PropertiesPanelProps) {
               <NumberField
                 label="Alpha"
                 value={Math.round(avgOpacity * 100)}
+                min={OPACITY_PERCENT_MIN}
+                max={OPACITY_PERCENT_MAX}
                 onChange={(value) =>
                   applyStyleToSelection(() => ({
                     opacity: Math.max(0, Math.min(1, value / 100)),
@@ -340,9 +386,10 @@ export function PropertiesPanel({ selectedElement }: PropertiesPanelProps) {
                 <NumberField
                   label="Weight"
                   value={Math.max(0, Math.round(avgStrokeWeight))}
+                  min={STROKE_WEIGHT_MIN}
                   onChange={(value) =>
                     applyStyleToSelection(
-                      () => ({ strokeWeight: Math.max(0, value) }),
+                      () => ({ strokeWeight: Math.max(STROKE_WEIGHT_MIN, value) }),
                       (element) => element.type !== 'image',
                     )
                   }
@@ -368,8 +415,18 @@ export function PropertiesPanel({ selectedElement }: PropertiesPanelProps) {
               <NumberField label="Y" value={Math.round(selectedElement.y)} onChange={(value) => updateElement(selectedElement.id, { y: value })} />
               {selectedElement.type !== 'line' ? (
                 <>
-                  <NumberField label="W" value={Math.round(selectedElement.width)} onChange={(value) => updateElement(selectedElement.id, { width: value })} />
-                  <NumberField label="H" value={Math.round(selectedElement.height)} onChange={(value) => updateElement(selectedElement.id, { height: value })} />
+                  <NumberField
+                    label="W"
+                    value={Math.round(selectedElement.width)}
+                    min={ELEMENT_MIN_SIZE}
+                    onChange={(value) => updateElement(selectedElement.id, { width: value })}
+                  />
+                  <NumberField
+                    label="H"
+                    value={Math.round(selectedElement.height)}
+                    min={ELEMENT_MIN_SIZE}
+                    onChange={(value) => updateElement(selectedElement.id, { height: value })}
+                  />
                 </>
               ) : (
                 <>
@@ -383,6 +440,8 @@ export function PropertiesPanel({ selectedElement }: PropertiesPanelProps) {
               <NumberField
                 label="Alpha"
                 value={Math.round(selectedElement.style.opacity * 100)}
+                min={OPACITY_PERCENT_MIN}
+                max={OPACITY_PERCENT_MAX}
                 onChange={(value) =>
                   updateElement(selectedElement.id, {
                     style: {
@@ -449,6 +508,7 @@ export function PropertiesPanel({ selectedElement }: PropertiesPanelProps) {
                 <NumberField
                   label="Weight"
                   value={Math.round(selectedElement.style.strokeWeight)}
+                  min={STROKE_WEIGHT_MIN}
                   onChange={(value) => updateElement(selectedElement.id, { style: { strokeWeight: value } })}
                 />
               </Section>
@@ -479,8 +539,9 @@ export function PropertiesPanel({ selectedElement }: PropertiesPanelProps) {
                   <NumberField
                     label="Size"
                     value={selectedElement.fontSize ?? 24}
+                    min={FONT_SIZE_MIN}
                     onChange={(value) => {
-                      const fontSize = Math.max(1, value)
+                      const fontSize = Math.max(FONT_SIZE_MIN, value)
                       const { width, height } = measureTextBoxSize(
                         selectedElement.text ?? '',
                         fontSize,
@@ -536,8 +597,14 @@ export function PropertiesPanel({ selectedElement }: PropertiesPanelProps) {
               <Section title="Polygon">
                 <NumberField
                   label="Sides"
-                  value={Math.max(3, Math.round(selectedElement.polygonSides ?? 6))}
-                  onChange={(value) => updateElement(selectedElement.id, { polygonSides: Math.max(3, Math.min(24, Math.round(value))) })}
+                  value={Math.max(POLYGON_SIDES_MIN, Math.round(selectedElement.polygonSides ?? 6))}
+                  min={POLYGON_SIDES_MIN}
+                  max={POLYGON_SIDES_MAX}
+                  onChange={(value) =>
+                    updateElement(selectedElement.id, {
+                      polygonSides: Math.max(POLYGON_SIDES_MIN, Math.min(POLYGON_SIDES_MAX, Math.round(value))),
+                    })
+                  }
                 />
               </Section>
             )}
