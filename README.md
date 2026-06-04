@@ -18,6 +18,8 @@ Built with React, TypeScript, Vite, and Zustand.
 - Autosave to localStorage every 30 seconds
 - Export options: copy/download p5.js code, try opening in p5.js Web Editor
 
+The position of each element in the actual sketch.js output may differ from the canvas.
+
 ## Quick Start
 
 ### Requirements
