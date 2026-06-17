@@ -3,6 +3,7 @@ import { AlignmentToolbar } from './components/AlignmentToolbar'
 import { CanvasStage } from './components/CanvasStage'
 import { ExportModal } from './components/ExportModal'
 import { HelpModal } from './components/HelpModal'
+import { SettingsModal } from './components/SettingsModal'
 import { PropertiesPanel } from './components/PropertiesPanel'
 import { ToolSidebar } from './components/ToolSidebar'
 import { TopBar } from './components/TopBar'
@@ -36,6 +37,7 @@ function App() {
   const [statusMessage, setStatusMessage] = useState('Select and drag elements. Export, save, or load canvas data.')
   const [isExportModalOpen, setIsExportModalOpen] = useState(false)
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false)
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const latestCanvasRef = useRef(canvas)
 
@@ -315,9 +317,8 @@ function App() {
           elementCount={elements.length}
           onExport={handleOpenExportModal}
           onHelp={() => setIsHelpModalOpen(true)}
-          onLoad={handleLoadClick}
+          onSettings={() => setIsSettingsModalOpen(true)}
           onRedo={redo}
-          onSave={handleSave}
           onUndo={undo}
           selectedElementType={selectedElement?.type ?? null}
           statusMessage={statusMessage}
@@ -346,6 +347,13 @@ function App() {
         <HelpModal
           isOpen={isHelpModalOpen}
           onClose={() => setIsHelpModalOpen(false)}
+        />
+
+        <SettingsModal
+          isOpen={isSettingsModalOpen}
+          onClose={() => setIsSettingsModalOpen(false)}
+          onSave={handleSave}
+          onLoad={handleLoadClick}
         />
       </div>
     </div>
