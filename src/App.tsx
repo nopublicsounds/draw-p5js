@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { AlignmentToolbar } from './components/AlignmentToolbar'
 import { CanvasStage } from './components/CanvasStage'
 import { ExportModal } from './components/ExportModal'
+import { HelpModal } from './components/HelpModal'
 import { PropertiesPanel } from './components/PropertiesPanel'
 import { ToolSidebar } from './components/ToolSidebar'
 import { TopBar } from './components/TopBar'
@@ -34,6 +35,7 @@ function App() {
   const futureLength = useCanvasStore((state) => state.future.length)
   const [statusMessage, setStatusMessage] = useState('Select and drag elements. Export, save, or load canvas data.')
   const [isExportModalOpen, setIsExportModalOpen] = useState(false)
+  const [isHelpModalOpen, setIsHelpModalOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const latestCanvasRef = useRef(canvas)
 
@@ -312,6 +314,7 @@ function App() {
           canUndo={historyLength > 0}
           elementCount={elements.length}
           onExport={handleOpenExportModal}
+          onHelp={() => setIsHelpModalOpen(true)}
           onLoad={handleLoadClick}
           onRedo={redo}
           onSave={handleSave}
@@ -338,6 +341,11 @@ function App() {
           onCopy={handleCopyExport}
           onDownload={handleDownloadExport}
           onOpenInEditor={handleOpenInEditor}
+        />
+
+        <HelpModal
+          isOpen={isHelpModalOpen}
+          onClose={() => setIsHelpModalOpen(false)}
         />
       </div>
     </div>

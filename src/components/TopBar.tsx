@@ -9,6 +9,7 @@ interface TopBarProps {
   onSave: () => void
   onLoad: () => void
   onExport: () => void
+  onHelp: () => void
   selectedElementType: string | null
   statusMessage: string
 }
@@ -61,6 +62,7 @@ export function TopBar({
   onSave,
   onLoad,
   onExport,
+  onHelp,
   selectedElementType,
   statusMessage,
 }: TopBarProps) {
@@ -184,6 +186,15 @@ export function TopBar({
             }`}
           >
             Snap {snapEnabled ? 'On' : 'Off'}
+          </button>
+
+          <button
+            type="button"
+            onClick={onHelp}
+            title="Keyboard shortcuts"
+            className="h-8 rounded-[4px] border border-white/18 px-3 text-[12px] font-medium text-white transition hover:bg-white/8"
+          >
+            ?
           </button>
 
           <button

@@ -1527,11 +1527,6 @@ export function CanvasStage() {
           </div>
         </div>
       </div>
-
-      <div className="flex items-center justify-between border-t border-[var(--color-outline)] px-3 py-2">
-        <p className="font-tech text-[11px] text-[var(--color-text-muted)]">Empty click clears selection. Free polygon: right-click or Enter to finish. Arrow keys move 1px. Shift + arrows move 10px. Hold Alt while dragging to bypass snapping.</p>
-        <p className="font-tech text-[11px] text-[var(--color-text-muted)]">Ctrl/Cmd + Z undo · Ctrl/Cmd + Y redo · Ctrl/Cmd + D duplicate</p>
-      </div>
     </section>
   )
 }
