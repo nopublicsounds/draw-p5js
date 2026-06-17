@@ -79,8 +79,8 @@ export function ExportModal({ isOpen, code, onClose, onCopy, onDownload, onOpenI
         </div>
 
         <div className="grid min-h-0 flex-1 grid-cols-1 gap-0 lg:grid-cols-[minmax(0,1fr)_280px]">
-          <div className="min-h-0 overflow-auto bg-[#f8fbff] p-4">
-            <pre className="overflow-x-auto rounded-[8px] border border-[var(--color-outline)] bg-white p-4 text-[12px] leading-5 text-[#1f2a44]">
+          <div className="min-h-0 overflow-auto bg-[var(--color-code-background)] p-4">
+            <pre className="overflow-x-auto rounded-[8px] border border-[var(--color-outline)] bg-white p-4 text-[12px] leading-5 text-[var(--color-code-text)]">
               <code className="hljs language-javascript" dangerouslySetInnerHTML={{ __html: highlightedCode }} />
             </pre>
           </div>

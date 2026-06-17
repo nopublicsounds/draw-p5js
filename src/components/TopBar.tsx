@@ -32,11 +32,11 @@ export function TopBar({
       <div className="flex flex-col gap-3 px-3 py-3 lg:flex-row lg:items-start lg:justify-between lg:py-2">
         <div className="flex min-w-0 flex-col gap-2 lg:flex-row lg:items-center lg:gap-4">
           <div className="min-w-0">
-            <p className="font-tech text-[11px] font-medium uppercase tracking-[0.08em] text-[#bac6ec]">P5Canvas Workspace</p>
+            <p className="font-tech text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--color-header-secondary)]">P5Canvas Workspace</p>
             <h1 className="truncate text-base font-semibold tracking-[-0.01em] text-white">Visual Canvas Editor</h1>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 text-[12px] text-[#eaf1ff]">
+          <div className="flex flex-wrap items-center gap-2 text-[12px] text-[var(--color-header-tertiary)]">
             <span className="rounded-[4px] border border-white/15 bg-white/8 px-2 py-1 font-tech">
               {canvas.width} x {canvas.height}
             </span>
@@ -100,7 +100,7 @@ export function TopBar({
         </div>
       </div>
 
-      <div className="border-t border-white/10 px-3 py-2 font-tech text-[11px] text-[#bac6ec]">{statusMessage}</div>
+      <div className="border-t border-white/10 px-3 py-2 font-tech text-[11px] text-[var(--color-header-secondary)]">{statusMessage}</div>
     </header>
   )
 }

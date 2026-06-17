@@ -18,6 +18,10 @@
   --color-primary-soft: #dae2ff;
   --color-accent: #b90042;
   --color-accent-strong: #e31757;
+  --color-code-background: #f8fbff;
+  --color-code-text: #1f2a44;
+  --color-header-secondary: #bac6ec;
+  --color-header-tertiary: #eaf1ff;
   --radius-ui: 0.25rem;
   --radius-panel: 0.5rem;
   font-family: var(--font-ui);
