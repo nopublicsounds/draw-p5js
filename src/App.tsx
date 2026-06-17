@@ -23,6 +23,8 @@ function App() {
   const deleteSelectedElements = useCanvasStore((state) => state.deleteSelectedElements)
   const duplicateSelectedElement = useCanvasStore((state) => state.duplicateSelectedElement)
   const selectAll = useCanvasStore((state) => state.selectAll)
+  const copySelectedElement = useCanvasStore((state) => state.copySelectedElement)
+  const pasteElement = useCanvasStore((state) => state.pasteElement)
   const setCanvasState = useCanvasStore((state) => state.setCanvasState)
   const undo = useCanvasStore((state) => state.undo)
   const redo = useCanvasStore((state) => state.redo)
@@ -163,6 +165,19 @@ function App() {
         }
         return
       }
+
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'c') {
+        event.preventDefault()
+        copySelectedElement()
+        return
+      }
+
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'v') {
+        event.preventDefault()
+        pasteElement()
+        return
+      }
+
 
       const distance = event.shiftKey ? 10 : 1
 

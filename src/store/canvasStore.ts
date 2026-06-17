@@ -44,6 +44,9 @@ interface CanvasStore {
   toggleSelection: (id: string) => void
   selectAll: () => void
   clearSelection: () => void
+  copySelectedElement: () => void
+  pasteElement: () => void
+
   /** Replace the entire canvas state after loading JSON or restoring from storage. */
   setCanvasState: (canvas: CanvasState) => void
   updateCanvasSize: (width: number, height: number) => void
@@ -123,6 +126,52 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
       history: [],
       future: [],
     }),
+    copySelectedElement: () => {
+    const { selectedElementIds, canvas } = get()
+    if (selectedElementIds.length === 0) return
+
+    const elements = canvas.elements.filter((e) => selectedElementIds.includes(e.id))
+    if (elements.length === 0) return
+
+    navigator.clipboard.writeText(JSON.stringify(elements)).catch((err) => {
+      console.error('Failed to copy elements to clipboard:', err)
+    })
+  },
+  pasteElement: () => {
+    navigator.clipboard.readText().then((text) => {
+      try {
+        const parsed: unknown = JSON.parse(text)
+        const items: CanvasElement[] = Array.isArray(parsed) ? parsed : [parsed as CanvasElement]
+
+        if (items.length === 0 || !items[0].id || items[0].x === undefined) return
+
+        const idMap = new Map<string, string>(items.map((e) => [e.id, crypto.randomUUID()]))
+        const newElements = items.map((e) => ({
+          ...cloneElement(e),
+          id: idMap.get(e.id) ?? crypto.randomUUID(),
+          x: e.x + 24,
+          y: e.y + 24,
+          x2: e.x2 !== undefined ? e.x2 + 24 : undefined,
+          y2: e.y2 !== undefined ? e.y2 + 24 : undefined,
+        }))
+
+        set((state) => ({
+          canvas: {
+            ...state.canvas,
+            elements: [...state.canvas.elements, ...newElements],
+          },
+          selectedElementId: newElements.length === 1 ? newElements[0].id : null,
+          selectedElementIds: newElements.map((e) => e.id),
+          history: pushHistory(state.history, state.canvas),
+          future: [],
+        }))
+      } catch (err) {
+        console.error('Failed to parse clipboard content:', err)
+      }
+    }).catch((err) => {
+      console.error('Failed to read from clipboard:', err)
+    })
+  },
   updateCanvasSize: (width, height) => {
     set((state) => ({
       canvas: {
