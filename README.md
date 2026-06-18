@@ -7,6 +7,8 @@
 draw-p5js is a visual canvas editor for building p5.js-style scenes and exporting them as code.  
 Just draw. Don't write.  
 
+한국어 문서: [README.ko.md](./README.ko.md)
+
 Built with React, TypeScript, Vite, and Zustand.
 
 ## Features
@@ -45,18 +47,6 @@ npm run preview  # preview built app
 npm run lint     # run ESLint
 npm run test     # run Vitest
 ```
-
-## Keyboard Shortcuts
-
-- Ctrl/Cmd + A: Select all
-- Ctrl/Cmd + Z: Undo
-- Ctrl/Cmd + Shift + Z: Redo
-- Ctrl/Cmd + Y: Redo
-- Ctrl/Cmd + D: Duplicate selected element
-- Delete / Backspace: Delete selection
-- Arrow keys: Move by 1px
-- Shift + Arrow keys: Move by 10px
-- Empty click: Clear selection
 
 ## JSON Import Validation
 
