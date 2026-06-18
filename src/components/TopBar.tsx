@@ -1,4 +1,5 @@
 import { useCanvasStore } from '../store/canvasStore'
+import githubIcon from '../assets/github.svg'
 
 interface TopBarProps {
   canUndo: boolean
@@ -97,6 +98,16 @@ export function TopBar({
           >
             Export
           </button>
+
+          <a
+            href="https://github.com/nopublicsounds/draw-p5js"
+            target="_blank"
+            rel="noreferrer"
+            title="GitHub"
+            className="flex h-8 items-center rounded-[4px] border border-white/18 px-3 transition hover:bg-white/8"
+          >
+            <img src={githubIcon} alt="GitHub" className="h-4 w-4 invert" />
+          </a>
         </div>
       </div>
 
